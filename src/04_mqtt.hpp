@@ -14,102 +14,105 @@
 #define MQTT_PING_INTERVAL 30     // MQTT "Keep-Alive" interval (s)
 
 // Publish in chunks (MQTT payload max ~256k, adjust as needed)
-const int chunkSize = 1000;
+#define CHUNK_SIZE 1000  // adjust as needed
+
 AsyncMqttClient mqttClient;
+const char* subTopics[] = { "cam/#" };
+const byte subLen = sizeof(subTopics) / sizeof(subTopics[0]);
+// static char topicOut[20];  // "fb/" = 4 + null terminator
+static char payloadOut[20];
+
 unsigned long mqttReconnectTimerID      ; // Timer to reconnect to MQTT after failed
 const uint16_t mqttReconnectTimer = 15000; // Delay to reconnect to Wifi after failed
 
-
 //======================================
-// MQTT Functions
+// MQTT Message handlers
 //======================================
-void onmqttDisconnect(AsyncMqttClientDisconnectReason reason) {
-  Serial.printf_P(PSTR("MQTT Disconnected: %i \n"), (int)reason);
-  if (WiFi.isConnected()) {
-    Serial.println(F("MQTT re-connecting..."));
-    mqttReconnectTimerID = timer.setTimeout(mqttReconnectTimer, []() { mqttClient.connect();});
-    mqttClient.connect();
+void handleFlash(const char *topic, const char *payload) {
+  digitalWrite(FLASH_PIN, payload[0] == '1');
+  strncpy(payloadOut, digitalRead(FLASH_PIN) ? "1" : "0", 2);
+  mqttClient.publish("fbCam/flash", 1, true, payloadOut);
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> flash: %s\n"), payloadOut);
+}
+
+void handleIP(const char* topic, const char* payload) {
+  strncpy(payloadOut, esp_ip, sizeof(esp_ip));
+  mqttClient.publish("fbCam/espIP", 1, false, esp_ip);
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> espIP: %s\n"), payloadOut);
+}
+
+void handleDebug(const char* topic, const char* payload) { 
+  Debug = payload[0] == '1';
+  strncpy(payloadOut, Debug ? "1" : "0", 2);
+  mqttClient.publish("fbCam/debug", 1, false, payloadOut); 
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> Debug: %s\n"), payloadOut); 
+}
+
+void handleReboot(const char* topic, const char* payload) {
+  if (Debug) Serial.println(F("[MQTT]> Rebooting"));
+  mqttClient.disconnect();
+  timer.setTimeout(3000, []() { esp_restart(); } );
+}
+
+void handleQty(const char* topic, const char* payload) {
+  if (!sensor || !payload) {
+    if (Debug) Serial.println(F("Sensor or payload is null"));
+    return;
   }
-}
 
-void onMqttConnect(bool sessionPresent) {
-  Serial.println(F("Subscribing:"));
-  mqttClient.subscribe("esp32cam/cmd", 2);
-}
-
-void onmqttSubscribe(uint16_t packetId, uint8_t qos) {
-  Serial.printf_P(PSTR("Sub. #%u \n"), packetId);
-}
-
-void onmqttUnsubscribe(uint16_t packetId) {
-  Serial.printf_P(PSTR("Unsub. #%u \n"), packetId);
-}
-
-void onmqttPublish(uint16_t packetId) {
-  Serial.printf_P(PSTR("Pub. #%u \n"), packetId);
-}
-
-void onmqttMessage(const char* topic, char* payload, const AsyncMqttClientMessageProperties properties, const size_t len, const size_t index, const size_t total) {
-
-  String message;
-  for (unsigned int i=0; i<len; i++) {
-    message += (char)payload[i];
+  byte qty = (byte)atoi(payload);
+  if (qty <= 0 || qty > 63) {
+    if (Debug) Serial.println(F("Invalid qty"));
+    return;
   }
-  Serial.print(F(">[MQTT]: "));
-  Serial.println(message);
 
-  if (message == "capture") {
-    // Flush staled frames
-    // for (int i = 0; i < 2; i++) {
-    //   camera_fb_t *fbt = esp_camera_fb_get();
-    //   if (fbt) esp_camera_fb_return(fbt);
-    //   delay(30);  // Give time for new frame
-    // }
-    camera_fb_t * fb = esp_camera_fb_get();
-    if (!fb) {
-      Serial.println(F("Camera capture failed"));
+  if (sensor->set_quality(sensor, qty) != 0) {
+    if (Debug) Serial.println(F("Failed to set quality"));
+    return;
+  }
+
+  itoa(sensor->status.quality, payloadOut, 10);
+  mqttClient.publish("fbCam/qty", 1, false, payloadOut);
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> qty: %s\n"), payloadOut);
+}
+
+void handleSize(const char* topic, const char* payload) {
+  if (!sensor || !payload) {
+    if (Debug) Serial.println(F("Sensor or payload is null"));
+    return;
+  }
+
+  byte sizeIndex = (byte)atoi(payload);
+  if (sizeIndex <= 13) {  // validate index between 0 and 13
+    if (sensor->set_framesize(sensor, (framesize_t)sizeIndex) != 0) {
+      if (Debug) Serial.println(F("Failed to set frame size"));
       return;
     }
-    // Convert to base64
-    String encoded = base64::encode(fb->buf, fb->len);
-    Serial.println("Base64 length: " + String(encoded.length()));
-    Serial.println(encoded.substring(0, 10));  // Optional: to verify start
+    itoa(sensor->status.framesize, payloadOut, 10);  
+    mqttClient.publish("fbCam/size", 1, false, payloadOut);
+    if(Debug) Serial.printf(PSTR("[MQTT]> frame size: %s\n"), payloadOut);
+  } 
+  else {
+    if(Debug) Serial.printf(PSTR("Invalid frame size index: %d\n"), sizeIndex);
+  }
+}
 
-    for (int i = 0; i < encoded.length(); i += chunkSize) {
-      String chunk = encoded.substring(i, i + chunkSize);
-      mqttClient.publish("esp32cam/photo", 0, false, chunk.c_str());
-    }
-    uint16_t packetId = mqttClient.publish("esp32cam/photo/done", 0, false, "done");
-
-    Serial.printf(PSTR("Published photo, packet ID: %u\n"), packetId);
-    esp_camera_fb_return(fb);
+void handlePhoto(const char* topic, const char* payload) {
+  size_t codedLen = 0;
+  unsigned char *codedBuf = codedPhoto(codedLen);
+  if (!codedBuf || codedLen == 0) {
+    if (Debug) Serial.println(F("No codedBuf image to publish"));
+    return;
   }
   
-  else if (message == "flash_on") {
-    // Turn on flashlight (if hardware supports)
-    digitalWrite(4, HIGH);
-    mqttClient.publish("esp32cam/flash", 0, false,  "true");
-  } 
-
-  else if (message == "flash_off") {
-    // Turn off flashlight
-    digitalWrite(4, LOW);
-    mqttClient.publish("esp32cam/flash", 0, false,  "false");
+  // Chunk and publish parts
+  for (size_t i = 0; i < codedLen; i += CHUNK_SIZE) {
+    if (Debug) Serial.printf(PSTR("%d - "), i);
+    size_t len = (i + CHUNK_SIZE < codedLen) ? CHUNK_SIZE : (codedLen - i);
+    mqttClient.publish("fbCam/photo", 0, false, (const char *)(codedBuf + i), len);
   }
+  mqttClient.publish("fbCam/photo", 0, false, "done");
+  
+  free(codedBuf);
+  if (Debug) Serial.printf(PSTR("\n[MQTT]> photo\n"));
 }
-
-
-void initMqtt() {         
-  mqttClient.onConnect(onMqttConnect);
-  mqttClient.onDisconnect(onmqttDisconnect);
-  mqttClient.onSubscribe(onmqttSubscribe);
-  mqttClient.onUnsubscribe(onmqttUnsubscribe);
-  mqttClient.onMessage(onmqttMessage);
-  mqttClient.onPublish(onmqttPublish);
-  mqttClient.setServer(MQTT_HOST, MQTT_PORT);
-  // mqttClient.setCredentials(BROKER_USER, BROKER_PASS);
-  mqttClient.setKeepAlive(MQTT_PING_INTERVAL);
-  mqttClient.setClientId("esp32cam-async");  
-  Serial.println(F("init MQTT done."));
-}
-

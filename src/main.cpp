@@ -22,8 +22,8 @@ void setup() {
   // initFS();
   WiFi.onEvent(wifiEvents);
   connectToWifi();    // includes initMqtt();
-  pinMode(4, OUTPUT);
   setup_camera();
+  initGPIO();
 }
 
 void loop() {
