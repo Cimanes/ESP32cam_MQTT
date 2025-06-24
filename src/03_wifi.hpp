@@ -17,7 +17,7 @@
 
 // Create AsyncWebServer object on port 80 and attach event handlers:
 AsyncWebServer server(80)               ;   // Required for HTTP 
-
+// WiFiServer server(80);
 const uint16_t wifiReconnectTimer = 3000; // Delay to reconnect to Wifi after failed
 
 #ifdef WIFI_MANAGER

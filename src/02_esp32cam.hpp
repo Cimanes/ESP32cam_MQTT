@@ -10,6 +10,7 @@
 // ESP32CAM VARIABLES
 //======================================
 sensor_t *sensor = NULL;
+// bool allowStream = false;
 
 //======================================
 // ESP32CAM SETUP FUNCTION

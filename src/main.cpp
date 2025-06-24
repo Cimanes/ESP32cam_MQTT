@@ -15,14 +15,12 @@
 //======================================
 void setup() {
   Serial.begin(115200);
-
-  Serial.setDebugOutput(true);
   Serial.println();
+  setup_camera();
   
   // initFS();
   WiFi.onEvent(wifiEvents);
   connectToWifi();    // includes initMqtt();
-  setup_camera();
   initGPIO();
 }
 

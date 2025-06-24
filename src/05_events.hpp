@@ -15,6 +15,7 @@ const Handler handlers[] = {      // topic:
   { "debug", handleDebug },       // esp/debug
   { "espIP", handleIP},           // cam/espIP
   { "reboot", handleReboot },     // cam/reboot
+  { "chunk", handleChunk },       // cam/chunk
   #ifdef WIFI_MANAGER
     { "wifi", handleWifi },       // cam/wifi
   #endif
@@ -35,12 +36,28 @@ void onmqttDisconnect(AsyncMqttClientDisconnectReason reason) {
   }
 }
 
+// When MQTT Connects:
+  // Publish curent ESP32-CAM feedback messages, 
+  // Then subscribe to commands
 void onMqttConnect(bool sessionPresent) {
-  if(Debug) Serial.println(F("Subscribing:"));
-  for (byte i = 0; i < subLen; i++) {
-    mqttClient.subscribe(subTopics[i], 2);
-    if(Debug) Serial.println(subTopics[i]);
-  }
+  timer.setTimeout(1000, []() { mqttClient.publish("fbCam/espIP", 1, false, esp_ip); });
+
+  // strncpy(payloadOut, Debug ? "1" : "0", 2);
+  timer.setTimeout(2000, []() { mqttClient.publish("fbCam/debug", 1, false, "1"); });
+
+  // strncpy(payloadOut, digitalRead(FLASH_PIN) ? "1" : "0", 2);
+  timer.setTimeout(3000, []() { mqttClient.publish("fbCam/flash", 1, false, "0"); });
+
+  // snprintf(payloadOut, 6, "%u", CHUNK_SIZE);
+  timer.setTimeout(4000, []() { mqttClient.publish("fbCam/chunk", 1, false, "1000"); });
+
+  // itoa(sensor->status.quality, payloadOut, 10);
+  // timer.setTimeout(4000, []() { mqttClient.publish("fbCam/qty", 1, false, payloadOut); });
+
+  // itoa(sensor->status.framesize, payloadOut, 10);  
+  // timer.setTimeout(5000, []() { mqttClient.publish("fbCam/frsize", 1, false, payloadOut); });
+
+  timer.setTimeout(4000, mqttSubscribe);
 }
 
 void onmqttSubscribe(uint16_t packetId, uint8_t qos) {
@@ -82,7 +99,7 @@ void initMqtt() {
   mqttClient.setCredentials(BROKER_USER, BROKER_PASS);
   mqttClient.setKeepAlive(MQTT_PING_INTERVAL);
   mqttClient.setClientId("esp32cam-async");  
-  Serial.println(F("init MQTT done."));
+  if(Debug) Serial.println(F("init MQTT done."));
 }
 
 
@@ -90,20 +107,20 @@ void initMqtt() {
 // Wifi Events
 //======================================
 void wifiEvents(WiFiEvent_t event, WiFiEventInfo_t info) {
-    switch (event) {
-      case SYSTEM_EVENT_STA_GOT_IP:
-        if (Debug) { 
-          Serial.println(WiFi.localIP());
-          Serial.println(F(" -> initWiFi done"));
-        } 
-        initMqtt();
-        if (Debug) Serial.println(F("MQTT Connecting..."));
-        mqttClient.connect();
-        break;
-      case SYSTEM_EVENT_STA_DISCONNECTED:
-        if (Debug)   Serial.println(F("Wifi disconnected."));
-        timer.deleteTimer(mqttReconnectTimerID);  // avoid reconnect to MQTT while reconnecting to Wi-Fi
-        timer.setTimeout(wifiReconnectTimer, connectToWifi);    // attempt to reconnect to WiFi
-        break;
-    }
+  switch (event) {
+    case SYSTEM_EVENT_STA_GOT_IP:
+      if (Debug) { 
+        Serial.println(WiFi.localIP());
+        Serial.println(F("-> initWiFi done"));
+      } 
+      initMqtt();
+      if (Debug) Serial.println(F("MQTT Connecting..."));
+      mqttClient.connect();
+      break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+      if (Debug)   Serial.println(F("Wifi disconnected."));
+      timer.deleteTimer(mqttReconnectTimerID);  // avoid reconnect to MQTT while reconnecting to Wi-Fi
+      timer.setTimeout(wifiReconnectTimer, connectToWifi);    // attempt to reconnect to WiFi
+      break;
   }
+}

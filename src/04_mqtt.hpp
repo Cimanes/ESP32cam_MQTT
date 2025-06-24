@@ -3,7 +3,6 @@
 //======================================
 #include <AsyncMqttClient.h>
 
-
 //======================================
 // GLOBAL VARIABLES
 //======================================
@@ -14,7 +13,7 @@
 #define MQTT_PING_INTERVAL 30     // MQTT "Keep-Alive" interval (s)
 
 // Publish in chunks (MQTT payload max ~256k, adjust as needed)
-#define CHUNK_SIZE 1000  // adjust as needed
+uint16_t CHUNK_SIZE = 1000;  // adjust as needed
 
 AsyncMqttClient mqttClient;
 const char* subTopics[] = { "cam/#" };
@@ -28,6 +27,14 @@ const uint16_t mqttReconnectTimer = 15000; // Delay to reconnect to Wifi after f
 //======================================
 // MQTT Message handlers
 //======================================
+
+void mqttSubscribe() {
+  if(Debug) Serial.println(F("Subscribing:"));
+  for (byte i = 0; i < subLen; i++) {
+    mqttClient.subscribe(subTopics[i], 2);
+    if(Debug) Serial.println(subTopics[i]);
+  }
+}
 void handleFlash(const char *topic, const char *payload) {
   digitalWrite(FLASH_PIN, payload[0] == '1');
   strncpy(payloadOut, digitalRead(FLASH_PIN) ? "1" : "0", 2);
@@ -47,6 +54,13 @@ void handleDebug(const char* topic, const char* payload) {
   mqttClient.publish("fbCam/debug", 1, false, payloadOut); 
   if (Debug) Serial.printf_P(PSTR("[MQTT]> Debug: %s\n"), payloadOut); 
 }
+
+void handleChunk(const char* topic, const char* payload) { 
+  CHUNK_SIZE = atoi(payload);
+  snprintf(payloadOut, 6, "%u", CHUNK_SIZE);
+  mqttClient.publish("fbCam/chunk", 1, false, payloadOut); 
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> Debug: %s\n"), payloadOut); 
+} 
 
 void handleReboot(const char* topic, const char* payload) {
   if (Debug) Serial.println(F("[MQTT]> Rebooting"));
@@ -89,7 +103,7 @@ void handleSize(const char* topic, const char* payload) {
       return;
     }
     itoa(sensor->status.framesize, payloadOut, 10);  
-    mqttClient.publish("fbCam/size", 1, false, payloadOut);
+    mqttClient.publish("fbCam/frsize", 1, false, payloadOut);
     if(Debug) Serial.printf(PSTR("[MQTT]> frame size: %s\n"), payloadOut);
   } 
   else {
