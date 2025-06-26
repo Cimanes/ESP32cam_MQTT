@@ -16,8 +16,11 @@
 #define TOLEDO
 
 // Create AsyncWebServer object on port 80 and attach event handlers:
-AsyncWebServer server(80)               ;   // Required for HTTP 
-// WiFiServer server(80);
+AsyncWebServer server(80) ;   // Required for HTTP
+AsyncEventSource events("/events");
+WiFiServer mjpegServer(81);   // MJPEG stream
+WiFiClient client;
+
 const uint16_t wifiReconnectTimer = 3000; // Delay to reconnect to Wifi after failed
 
 #ifdef WIFI_MANAGER
@@ -217,7 +220,11 @@ const uint16_t wifiReconnectTimer = 3000; // Delay to reconnect to Wifi after fa
       Serial.print('.');
       delay(1000);
     }
-    Serial.println(WiFi.localIP());
+    if (Debug) Serial.println(WiFi.localIP());
+
+   
+    // server.begin();       // AsyncWebServer for MQTT
+    // mjpegServer.begin();  // Sync server for MJPEG stream  
   }
 #endif
 

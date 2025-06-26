@@ -21,7 +21,7 @@ const byte subLen = sizeof(subTopics) / sizeof(subTopics[0]);
 // static char topicOut[20];  // "fb/" = 4 + null terminator
 static char payloadOut[20];
 
-unsigned long mqttReconnectTimerID      ; // Timer to reconnect to MQTT after failed
+unsigned int mqttReconnectTimerID      ; // Timer to reconnect to MQTT after failed
 const uint16_t mqttReconnectTimer = 15000; // Delay to reconnect to Wifi after failed
 
 //======================================
@@ -64,6 +64,7 @@ void handleChunk(const char* topic, const char* payload) {
 
 void handleReboot(const char* topic, const char* payload) {
   if (Debug) Serial.println(F("[MQTT]> Rebooting"));
+
   mqttClient.disconnect();
   timer.setTimeout(3000, []() { esp_restart(); } );
 }
@@ -129,4 +130,12 @@ void handlePhoto(const char* topic, const char* payload) {
   
   free(codedBuf);
   if (Debug) Serial.printf(PSTR("\n[MQTT]> photo\n"));
+}
+
+void handleStream(const char* topic, const char* payload) {
+  allowStream = payload[0] == '1';
+  if (!allowStream) stopStream();
+  strncpy(payloadOut, allowStream ? "1" : "0", 2);
+  mqttClient.publish("fbCam/stream", 1, false, payloadOut);
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> stream: %s\n"), payloadOut);   
 }

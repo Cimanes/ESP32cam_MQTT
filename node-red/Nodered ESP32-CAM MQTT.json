@@ -1,0 +1,1288 @@
+[
+    {
+        "id": "camera-flow",
+        "type": "tab",
+        "label": "ESP32-CAM",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "mqtt-out-cmd",
+        "type": "mqtt out",
+        "z": "camera-flow",
+        "name": "Send Command",
+        "topic": "",
+        "qos": "0",
+        "retain": false,
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "9f9e276987b2fb1f",
+        "x": 800,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "e089fb7c8e4de2ef",
+        "type": "mqtt in",
+        "z": "camera-flow",
+        "name": "fbCam/+",
+        "topic": "fbCam/+",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "9f9e276987b2fb1f",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 100,
+        "y": 820,
+        "wires": [
+            [
+                "1a131588191592c7"
+            ]
+        ]
+    },
+    {
+        "id": "bd61e5b104a807e2",
+        "type": "ui-template",
+        "z": "camera-flow",
+        "group": "90d95b3d7415162f",
+        "page": "",
+        "ui": "",
+        "name": "Snapshot in-tab",
+        "order": 8,
+        "width": 0,
+        "height": 0,
+        "head": "",
+        "format": "<template #default=\"{ msg }\">\n  <div style=\"text-align: center;\">\n    <h2>ESP32-CAM Photo</h2>\n    <p v-if=\"msg && msg.bufsize\">Size: {{msg.bufsize}} Kb</p>\n    <p v-else>Size: -- Kb</p>\n    <img\n      v-if=\"msg && msg.payload\"\n      :src=\"'data:image/jpeg;base64,' + msg.payload\"\n      alt=\"ESP32-CAM\"\n      style=\"max-width: 100%; border-radius: 8px; box-shadow: 0 0 10px #aaa;\"\n    />\n    <p v-else>No image received yet.</p>\n  </div>\n</template>\n",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 720,
+        "y": 620,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f76b61c61562cca6",
+        "type": "function",
+        "z": "camera-flow",
+        "name": "Create picture",
+        "func": "// Initialize or retrieve buffer\nlet chunks = context.get(\"photoChunks\") || \"\";\n\nif (msg.payload == \"done\") {\n    // Delay briefly to ensure all chunks are written\n    setTimeout(() => {\n        const base64Image = context.get(\"photoChunks\") || \"\";\n        context.set(\"photoChunks\", null);  // clear buffer\n        node.send({ payload: base64Image, bufsize:base64Image.length/1000 });\n    }, 500);  // Wait 50 ms\n    return null; // prevent early send\n}\n\nelse {\n    chunks += msg.payload;\n    context.set(\"photoChunks\", chunks);\n    return null;\n}",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 520,
+        "y": 640,
+        "wires": [
+            [
+                "bd61e5b104a807e2"
+            ]
+        ]
+    },
+    {
+        "id": "536a6d32f486476f",
+        "type": "ui-button",
+        "z": "camera-flow",
+        "group": "90d95b3d7415162f",
+        "name": "",
+        "label": "Clear photo",
+        "order": 9,
+        "width": 0,
+        "height": 0,
+        "emulateClick": true,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "buttonColor": "rgb(100,0,0)",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 510,
+        "y": 600,
+        "wires": [
+            [
+                "bd61e5b104a807e2"
+            ]
+        ]
+    },
+    {
+        "id": "b2f85371ea95ac6e",
+        "type": "ui-dropdown",
+        "z": "camera-flow",
+        "group": "685b85f0a27d2569",
+        "name": "cam/cfg/size",
+        "label": "Frame size: ",
+        "tooltip": "",
+        "order": 7,
+        "width": 3,
+        "height": 0,
+        "passthru": false,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "QQVGA (160x120)",
+                "value": "1",
+                "type": "str"
+            },
+            {
+                "label": "HQVGA (240x176",
+                "value": "3",
+                "type": "str"
+            },
+            {
+                "label": "QVGA (320x240)",
+                "value": "5",
+                "type": "str"
+            },
+            {
+                "label": "HVGA (480x320)",
+                "value": "7",
+                "type": "str"
+            },
+            {
+                "label": "VGA (640x480): Qty > 5",
+                "value": "8",
+                "type": "str"
+            },
+            {
+                "label": "SVGA (800x600): Qty > 11",
+                "value": "9",
+                "type": "str"
+            },
+            {
+                "label": "XGA (1024x768): Qty > 13",
+                "value": "10",
+                "type": "str"
+            },
+            {
+                "label": "HD (1280x720): Qty > 15",
+                "value": "11",
+                "type": "str"
+            },
+            {
+                "label": "SXGA (1280x1024): Qty > 30",
+                "value": "12",
+                "type": "str"
+            },
+            {
+                "label": "UXGA (1600x1200): Not recommended",
+                "value": "13",
+                "type": "str"
+            }
+        ],
+        "payload": "",
+        "topic": "cam/cfg/size",
+        "topicType": "str",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onClose",
+        "x": 510,
+        "y": 200,
+        "wires": [
+            [
+                "mqtt-out-cmd"
+            ]
+        ]
+    },
+    {
+        "id": "162b4b63fa789c6b",
+        "type": "ui-slider",
+        "z": "camera-flow",
+        "group": "685b85f0a27d2569",
+        "name": "cam/cfg/qty",
+        "label": "Image Quality",
+        "tooltip": "",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "outs": "end",
+        "topic": "cam/cfg/qty",
+        "topicType": "str",
+        "thumbLabel": "true",
+        "showTicks": "always",
+        "min": 0,
+        "max": "63",
+        "step": 1,
+        "className": "",
+        "iconPrepend": "",
+        "iconAppend": "",
+        "color": "",
+        "colorTrack": "",
+        "colorThumb": "",
+        "showTextField": false,
+        "x": 510,
+        "y": 240,
+        "wires": [
+            [
+                "mqtt-out-cmd"
+            ]
+        ]
+    },
+    {
+        "id": "1a131588191592c7",
+        "type": "switch",
+        "z": "camera-flow",
+        "name": "Identify topic",
+        "property": "topic",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "cont",
+                "v": "photo",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "flash",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "debug",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "espIP",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "chunk",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "qty",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "frsize",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "stream",
+                "vt": "str"
+            },
+            {
+                "t": "else"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 9,
+        "x": 270,
+        "y": 820,
+        "wires": [
+            [
+                "f76b61c61562cca6"
+            ],
+            [
+                "1d1bda8f73865724"
+            ],
+            [
+                "4844a8e0a3d50413"
+            ],
+            [
+                "722e6b24c33c2716"
+            ],
+            [
+                "2b42497e36270de0"
+            ],
+            [
+                "35cc9e970e1a53d5"
+            ],
+            [
+                "b3a5405f34e49839"
+            ],
+            [
+                "2e412153f560134c"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "1d1bda8f73865724",
+        "type": "ui-led",
+        "z": "camera-flow",
+        "name": "Flash Led",
+        "group": "90d95b3d7415162f",
+        "order": 5,
+        "width": 3,
+        "height": 0,
+        "label": "Flash",
+        "labelPlacement": "right",
+        "labelAlignment": "flex-start",
+        "states": [
+            {
+                "value": "1",
+                "valueType": "num",
+                "color": "#0a5a78"
+            },
+            {
+                "value": "0",
+                "valueType": "num",
+                "color": "#575757"
+            }
+        ],
+        "allowColorForValueInMessage": false,
+        "shape": "square",
+        "showBorder": false,
+        "showGlow": false,
+        "x": 500,
+        "y": 700,
+        "wires": []
+    },
+    {
+        "id": "4844a8e0a3d50413",
+        "type": "ui-led",
+        "z": "camera-flow",
+        "name": "Debug Led",
+        "group": "685b85f0a27d2569",
+        "order": 10,
+        "width": 3,
+        "height": "1",
+        "label": "Debug",
+        "labelPlacement": "right",
+        "labelAlignment": "flex-start",
+        "states": [
+            {
+                "value": "1",
+                "valueType": "num",
+                "color": "#0a5a78"
+            },
+            {
+                "value": "0",
+                "valueType": "num",
+                "color": "#575757"
+            }
+        ],
+        "allowColorForValueInMessage": false,
+        "shape": "square",
+        "showBorder": false,
+        "showGlow": false,
+        "x": 510,
+        "y": 740,
+        "wires": []
+    },
+    {
+        "id": "722e6b24c33c2716",
+        "type": "ui-text",
+        "z": "camera-flow",
+        "group": "685b85f0a27d2569",
+        "order": 2,
+        "width": 3,
+        "height": 0,
+        "name": "Cam (client) IP",
+        "label": "Cam (client) IP:",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "x": 520,
+        "y": 780,
+        "wires": []
+    },
+    {
+        "id": "be08d93dc1ffab2a",
+        "type": "ui-button",
+        "z": "camera-flow",
+        "group": "685b85f0a27d2569",
+        "name": "cam/espIP",
+        "label": "get CAM IP",
+        "order": 1,
+        "width": 3,
+        "height": 0,
+        "emulateClick": true,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": ">",
+        "payloadType": "str",
+        "topic": "cam/espIP",
+        "topicType": "str",
+        "buttonColor": "",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 510,
+        "y": 280,
+        "wires": [
+            [
+                "mqtt-out-cmd"
+            ]
+        ]
+    },
+    {
+        "id": "2c3f8cdcda1e62b5",
+        "type": "inject",
+        "z": "camera-flow",
+        "name": "Init. ESP IP",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "x": 210,
+        "y": 280,
+        "wires": [
+            [
+                "be08d93dc1ffab2a"
+            ]
+        ]
+    },
+    {
+        "id": "35127a4b3f98ffc5",
+        "type": "ui-button",
+        "z": "camera-flow",
+        "group": "685b85f0a27d2569",
+        "name": "cam/reboot",
+        "label": "Reboot",
+        "order": 14,
+        "width": 3,
+        "height": 0,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": ">",
+        "payloadType": "str",
+        "topic": "cam/reboot",
+        "topicType": "str",
+        "buttonColor": "rgb(100,0,0)",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 510,
+        "y": 40,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ec7a6679a9072903",
+        "type": "ui-button",
+        "z": "camera-flow",
+        "group": "685b85f0a27d2569",
+        "name": "cam/ota",
+        "label": "OTA update",
+        "order": 13,
+        "width": 3,
+        "height": 0,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "button_red",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": ">",
+        "payloadType": "str",
+        "topic": "cam/ota",
+        "topicType": "str",
+        "buttonColor": "rgb(100,0,0)",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 500,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "513e8e3f76ca73e3",
+        "type": "ui-slide-confirm",
+        "z": "camera-flow",
+        "group": "685b85f0a27d2569",
+        "name": "Unlock CAM",
+        "label": "Unlock",
+        "order": 11,
+        "width": 3,
+        "height": 0,
+        "passthru": false,
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "mySlide",
+        "sliderHeight": "30",
+        "textSize": "18",
+        "iconSuccess": "mdi-check",
+        "text": "Unlock",
+        "successText": "Buttons unlocked",
+        "circle": true,
+        "animate": false,
+        "timeout": "5",
+        "controlledWidgets": [
+            "35127a4b3f98ffc5",
+            "ec7a6679a9072903",
+            "2295a88ea58dd34f"
+        ],
+        "x": 310,
+        "y": 80,
+        "wires": [
+            [
+                "35127a4b3f98ffc5",
+                "ec7a6679a9072903",
+                "2295a88ea58dd34f"
+            ]
+        ]
+    },
+    {
+        "id": "9fdadac6142648d1",
+        "type": "ui-template",
+        "z": "camera-flow",
+        "group": "",
+        "page": "bde350f197f7a982",
+        "ui": "",
+        "name": "unlock template",
+        "order": 0,
+        "width": 0,
+        "height": 0,
+        "head": "",
+        "format": "<style>\n    /* This styles the outer container of ui-slide-confirm */\n    .mySlide {\n        margin: 10px;\n        padding: 10px;\n        background-color: #666666;\n        border-radius: 8px;\n        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);\n    }\n</style>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "widget:page",
+        "className": "",
+        "x": 120,
+        "y": 80,
+        "wires": [
+            [
+                "513e8e3f76ca73e3"
+            ]
+        ]
+    },
+    {
+        "id": "713a652d7dc2e04f",
+        "type": "ui-switch",
+        "z": "camera-flow",
+        "name": "cam/debug",
+        "label": "Debug",
+        "group": "685b85f0a27d2569",
+        "order": 9,
+        "width": 3,
+        "height": 0,
+        "passthru": true,
+        "decouple": false,
+        "topic": "cam/debug",
+        "topicType": "str",
+        "style": "",
+        "className": "",
+        "layout": "row-left",
+        "clickableArea": "switch",
+        "onvalue": "1",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "0",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "x": 510,
+        "y": 460,
+        "wires": [
+            [
+                "mqtt-out-cmd"
+            ]
+        ]
+    },
+    {
+        "id": "1dc62dbbc5870777",
+        "type": "inject",
+        "z": "camera-flow",
+        "name": "Init. Debug",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "payload": "1",
+        "payloadType": "str",
+        "x": 210,
+        "y": 460,
+        "wires": [
+            [
+                "713a652d7dc2e04f"
+            ]
+        ]
+    },
+    {
+        "id": "2295a88ea58dd34f",
+        "type": "ui-button",
+        "z": "camera-flow",
+        "group": "685b85f0a27d2569",
+        "name": "cam/wifi",
+        "label": "Reset Wifi",
+        "order": 12,
+        "width": 3,
+        "height": 0,
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": ">",
+        "payloadType": "str",
+        "topic": "cam/wifi",
+        "topicType": "str",
+        "buttonColor": "rgb(100,0,0)",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 500,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "b9259d90f379c14f",
+        "type": "ui-switch",
+        "z": "camera-flow",
+        "name": "cam/flash",
+        "label": "Flash",
+        "group": "90d95b3d7415162f",
+        "order": 3,
+        "width": 3,
+        "height": 0,
+        "passthru": true,
+        "decouple": false,
+        "topic": "cam/flash",
+        "topicType": "str",
+        "style": "",
+        "className": "",
+        "layout": "row-left",
+        "clickableArea": "switch",
+        "onvalue": "1",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "0",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "x": 520,
+        "y": 400,
+        "wires": [
+            [
+                "mqtt-out-cmd"
+            ]
+        ]
+    },
+    {
+        "id": "e591f2d2ae14c081",
+        "type": "ui-text",
+        "z": "camera-flow",
+        "group": "685b85f0a27d2569",
+        "order": 8,
+        "width": 3,
+        "height": 0,
+        "name": "Frame size",
+        "label": "Frame size:",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "x": 710,
+        "y": 900,
+        "wires": []
+    },
+    {
+        "id": "35cc9e970e1a53d5",
+        "type": "ui-text",
+        "z": "camera-flow",
+        "group": "685b85f0a27d2569",
+        "order": 5,
+        "width": 3,
+        "height": 0,
+        "name": "Image quality",
+        "label": "Image quality: ",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "x": 510,
+        "y": 860,
+        "wires": []
+    },
+    {
+        "id": "b3a5405f34e49839",
+        "type": "function",
+        "z": "camera-flow",
+        "name": "Fr size map",
+        "func": "// Initialize or retrieve buffer\nconst qtyMap = [\"96x96\",\n   \"QQVGA 160x120\",\n   \"QCIF 176x144\",\n   \"HQVGA 240x240\",\n   \"240x320\",\n   \"QVGA 320x240\",\n   \"CIF 352x288\",\n   \"HVGA 480x320\",\n   \"VGA 640x480\",\n   \"SVGA 800x600\",\n   \"XGA 1024x768\",\n   \"HD 1280x720\",\n   \"SXGA 1280x1024\",\n   \"UXGA 1600x1200\",\n]\n\nreturn {payload: qtyMap.at(msg.payload)}\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 510,
+        "y": 900,
+        "wires": [
+            [
+                "e591f2d2ae14c081"
+            ]
+        ]
+    },
+    {
+        "id": "2b42497e36270de0",
+        "type": "ui-text",
+        "z": "camera-flow",
+        "group": "685b85f0a27d2569",
+        "order": 6,
+        "width": 3,
+        "height": 0,
+        "name": "Chunk size",
+        "label": "Chunk size:",
+        "format": "{{msg.payload}}",
+        "layout": "row-left",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "x": 510,
+        "y": 820,
+        "wires": []
+    },
+    {
+        "id": "2a96dd9f9c9dc9a3",
+        "type": "ui-slider",
+        "z": "camera-flow",
+        "group": "685b85f0a27d2569",
+        "name": "cam/cfg/chunk",
+        "label": "Chunk size",
+        "tooltip": "",
+        "order": 4,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "outs": "end",
+        "topic": "cam/cfg/chunk",
+        "topicType": "str",
+        "thumbLabel": "true",
+        "showTicks": "always",
+        "min": "500",
+        "max": "2000",
+        "step": "100",
+        "className": "",
+        "iconPrepend": "",
+        "iconAppend": "",
+        "color": "",
+        "colorTrack": "",
+        "colorThumb": "",
+        "showTextField": false,
+        "x": 500,
+        "y": 360,
+        "wires": [
+            [
+                "mqtt-out-cmd"
+            ]
+        ]
+    },
+    {
+        "id": "1e021ddf74996acb",
+        "type": "ui-switch",
+        "z": "camera-flow",
+        "name": "cam/stream",
+        "label": "Stream",
+        "group": "90d95b3d7415162f",
+        "order": 4,
+        "width": 3,
+        "height": 0,
+        "passthru": true,
+        "decouple": false,
+        "topic": "cam/stream",
+        "topicType": "str",
+        "style": "",
+        "className": "",
+        "layout": "row-left",
+        "clickableArea": "switch",
+        "onvalue": "1",
+        "onvalueType": "str",
+        "onicon": "",
+        "oncolor": "",
+        "offvalue": "0",
+        "offvalueType": "str",
+        "officon": "",
+        "offcolor": "",
+        "x": 510,
+        "y": 320,
+        "wires": [
+            [
+                "mqtt-out-cmd"
+            ]
+        ]
+    },
+    {
+        "id": "2e412153f560134c",
+        "type": "ui-led",
+        "z": "camera-flow",
+        "name": "Stream Led",
+        "group": "90d95b3d7415162f",
+        "order": 6,
+        "width": 3,
+        "height": 0,
+        "label": "Stream",
+        "labelPlacement": "right",
+        "labelAlignment": "flex-start",
+        "states": [
+            {
+                "value": "1",
+                "valueType": "num",
+                "color": "#0a5a78"
+            },
+            {
+                "value": "0",
+                "valueType": "num",
+                "color": "#575757"
+            }
+        ],
+        "allowColorForValueInMessage": false,
+        "shape": "square",
+        "showBorder": false,
+        "showGlow": false,
+        "x": 510,
+        "y": 940,
+        "wires": []
+    },
+    {
+        "id": "dd02f2f84ace29fe",
+        "type": "ui-button",
+        "z": "camera-flow",
+        "group": "90d95b3d7415162f",
+        "name": "cam/photo",
+        "label": "📸 Capture Photo",
+        "order": 7,
+        "width": 3,
+        "height": 0,
+        "emulateClick": true,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": ">",
+        "payloadType": "str",
+        "topic": "cam/photo",
+        "topicType": "str",
+        "buttonColor": "",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 510,
+        "y": 540,
+        "wires": [
+            [
+                "mqtt-out-cmd"
+            ]
+        ]
+    },
+    {
+        "id": "e6ba8a667e56e55a",
+        "type": "http in",
+        "z": "camera-flow",
+        "name": "HTTP GET /snapshot",
+        "url": "/snapshot",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 160,
+        "y": 1060,
+        "wires": [
+            [
+                "0307ba85c7117b83"
+            ]
+        ]
+    },
+    {
+        "id": "0307ba85c7117b83",
+        "type": "http request",
+        "z": "camera-flow",
+        "name": "Get ESP32 Snapshot",
+        "method": "GET",
+        "ret": "bin",
+        "paytoqs": "ignore",
+        "url": "http://192.168.1.214/snapshot",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 390,
+        "y": 1060,
+        "wires": [
+            [
+                "e32848843544c0b2"
+            ]
+        ]
+    },
+    {
+        "id": "e32848843544c0b2",
+        "type": "http response",
+        "z": "camera-flow",
+        "name": "Respond with Image",
+        "statusCode": "",
+        "headers": {
+            "Content-Type": "image/jpeg"
+        },
+        "x": 620,
+        "y": 1060,
+        "wires": []
+    },
+    {
+        "id": "open_tab_template",
+        "type": "ui-template",
+        "z": "camera-flow",
+        "group": "90d95b3d7415162f",
+        "page": "",
+        "ui": "",
+        "name": "Open Snapshot Tab",
+        "order": 1,
+        "width": 3,
+        "height": 0,
+        "format": "<template>\n  <v-btn @click=\"viewSnapshot\" color=\"primary\">📸 Snapshot tab</v-btn>\n</template>\n\n<script>\n  export default {\n  methods: {\n    viewSnapshot() {\n      window.open(`/snapshot`, '_blank');    }\n  }\n}\n</script>",
+        "storeOutMessages": false,
+        "passthru": true,
+        "resendOnRefresh": false,
+        "templateScope": "local",
+        "className": "",
+        "x": 160,
+        "y": 1020,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "1031c08872d16dac",
+        "type": "http in",
+        "z": "camera-flow",
+        "name": "HTTP GET /stream",
+        "url": "/stream",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 150,
+        "y": 1200,
+        "wires": [
+            [
+                "40703ddb81c0c556"
+            ]
+        ]
+    },
+    {
+        "id": "40703ddb81c0c556",
+        "type": "http request",
+        "z": "camera-flow",
+        "name": "Get ESP32 Snapshot",
+        "method": "GET",
+        "ret": "bin",
+        "paytoqs": "ignore",
+        "url": "https://cam01.cimanes.org.es",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 390,
+        "y": 1200,
+        "wires": [
+            [
+                "b8bafe6d715bdbb9"
+            ]
+        ]
+    },
+    {
+        "id": "b8bafe6d715bdbb9",
+        "type": "http response",
+        "z": "camera-flow",
+        "name": "Respond with Image",
+        "statusCode": "",
+        "headers": {
+            "Content-Type": "image/jpeg"
+        },
+        "x": 620,
+        "y": 1200,
+        "wires": []
+    },
+    {
+        "id": "0b77097763f66566",
+        "type": "ui-template",
+        "z": "camera-flow",
+        "group": "90d95b3d7415162f",
+        "page": "",
+        "ui": "",
+        "name": "Open Streaming Tab",
+        "order": 2,
+        "width": 3,
+        "height": 0,
+        "format": "<template>\n  <v-btn @click=\"openStreamTab\" color=\"primary\">🎥 Live Stream</v-btn>\n</template>\n\n<script>\nexport default {\n  methods: {\n    openStreamTab() {\n      window.open('https://cam01.cimanes.org.es', '_blank');\n    }\n  }\n}\n</script>",
+        "storeOutMessages": false,
+        "passthru": true,
+        "resendOnRefresh": false,
+        "templateScope": "local",
+        "className": "",
+        "x": 160,
+        "y": 1160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9f9e276987b2fb1f",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "90d95b3d7415162f",
+        "type": "ui-group",
+        "name": "Camera control",
+        "page": "fef870f18600f51e",
+        "width": 6,
+        "height": 1,
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "685b85f0a27d2569",
+        "type": "ui-group",
+        "name": "Camera Config.",
+        "page": "fef870f18600f51e",
+        "width": 6,
+        "height": 1,
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "bde350f197f7a982",
+        "type": "ui-page",
+        "name": "WS - ESP",
+        "ui": "77e83d514b9bd6e2",
+        "path": "/WS_console",
+        "icon": "home",
+        "layout": "grid",
+        "theme": "f633910aef2e9d8b",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 6,
+        "className": "",
+        "visible": "false",
+        "disabled": "true"
+    },
+    {
+        "id": "fef870f18600f51e",
+        "type": "ui-page",
+        "name": "ESP32-CAM 2",
+        "ui": "77e83d514b9bd6e2",
+        "path": "/cam2",
+        "icon": "home",
+        "layout": "grid",
+        "theme": "f633910aef2e9d8b",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 1,
+        "className": "",
+        "visible": true,
+        "disabled": false
+    },
+    {
+        "id": "77e83d514b9bd6e2",
+        "type": "ui-base",
+        "name": "NoderedUI",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": true,
+        "headerContent": "page",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true
+    },
+    {
+        "id": "f633910aef2e9d8b",
+        "type": "ui-theme",
+        "name": "Default Theme",
+        "colors": {
+            "surface": "#232323",
+            "primary": "#0a5a78",
+            "bgPage": "#000000",
+            "groupBg": "#afafaf",
+            "groupOutline": "#0d0d0d"
+        },
+        "sizes": {
+            "density": "default",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    }
+]

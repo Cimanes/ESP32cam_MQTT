@@ -10,11 +10,59 @@
 // ESP32CAM VARIABLES
 //======================================
 sensor_t *sensor = NULL;
-// bool allowStream = false;
+bool allowStream = false;   // Controlled by MQTT
+bool streaming = false;     // Indicates active client
+int streamTimerID;
+int streamCheckTimerID;
+uint16_t streamTimer = 4000; // Delay between stream samples (ms)
+uint16_t streamCheckTimer = 3000; // Delay between stream checks
 
 //======================================
-// ESP32CAM SETUP FUNCTION
+// ESP32CAM FUNCTIONS 
 //======================================
+void stopStream() {
+  if (client.connected()) {
+    client.stop();
+    if (Debug) Serial.println(F("Stream stopped"));
+  }
+  streaming = false;
+  timer.deleteTimer(streamTimerID);
+}
+
+void sendFrame() {
+  if (!allowStream || !streaming || !client.connected()) {
+    stopStream();  // clean up
+    return;
+  }
+  camera_fb_t *fb = esp_camera_fb_get();
+  if (!fb) return;
+  client.printf_P(PSTR("--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n"), fb->len);
+  client.write(fb->buf, fb->len);
+  client.write("\r\n", 2);
+  esp_camera_fb_return(fb);
+  if (Debug && streamTimer > 999) Serial.println(F("Stream sent"));
+}
+
+void startStream(WiFiClient newClient) {
+  if (streamTimerID >= 0) timer.deleteTimer(streamTimerID);  // just in case
+  client = newClient;
+  streaming = true;
+  const char *header =
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
+  client.write(header, strlen(header));
+  if (Debug) Serial.println(F("Streaming"));
+  streamTimerID = timer.setInterval(streamTimer, sendFrame);
+}
+
+void checkStream() {
+  if (!streaming && allowStream) {
+    WiFiClient newClient = mjpegServer.available();
+    if (newClient) startStream(newClient);
+  }
+  if (Debug && streamTimer > 999) Serial.printf_P(PSTR("Stream check: %u\n"), (uint8_t)allowStream);
+}
+
 void setup_camera() {
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -68,19 +116,22 @@ void setup_camera() {
     Serial.printf(PSTR("Camera init failed. Error: 0x%x"), err);
     while(true);
   }
-
   sensor = esp_camera_sensor_get();
+  // timer.setInterval(streamCheckTimer, checkStream);
 }
 
-unsigned char* codedPhoto(size_t &codedLen)  {
-  // Flush staled frames
+// Flush staled frames
+void flushCam() {
   for (int i = 0; i < 2; i++) {
-    if(Debug) Serial.println(F("Flushing..."));
     camera_fb_t *fbt = esp_camera_fb_get();
     if (fbt) esp_camera_fb_return(fbt);
     delay(30);  // Give time for new frame
   }
-  
+  if(Debug) Serial.println(F("Flushed"));
+}
+
+unsigned char* codedPhoto(size_t &codedLen)  {
+  flushCam() ;  
   // Capture frame
   camera_fb_t *fb = esp_camera_fb_get();
   if (!fb) {

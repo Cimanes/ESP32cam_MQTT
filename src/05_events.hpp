@@ -16,6 +16,7 @@ const Handler handlers[] = {      // topic:
   { "espIP", handleIP},           // cam/espIP
   { "reboot", handleReboot },     // cam/reboot
   { "chunk", handleChunk },       // cam/chunk
+  { "stream", handleStream },         // cam/wifi
   #ifdef WIFI_MANAGER
     { "wifi", handleWifi },       // cam/wifi
   #endif
@@ -51,13 +52,13 @@ void onMqttConnect(bool sessionPresent) {
   // snprintf(payloadOut, 6, "%u", CHUNK_SIZE);
   timer.setTimeout(4000, []() { mqttClient.publish("fbCam/chunk", 1, false, "1000"); });
 
-  // itoa(sensor->status.quality, payloadOut, 10);
-  // timer.setTimeout(4000, []() { mqttClient.publish("fbCam/qty", 1, false, payloadOut); });
+  itoa(sensor->status.quality, payloadOut, 10);
+  timer.setTimeout(5000, []() { mqttClient.publish("fbCam/qty", 1, false, payloadOut); });
 
-  // itoa(sensor->status.framesize, payloadOut, 10);  
-  // timer.setTimeout(5000, []() { mqttClient.publish("fbCam/frsize", 1, false, payloadOut); });
+  itoa(sensor->status.framesize, payloadOut, 10);  
+  timer.setTimeout(6000, []() { mqttClient.publish("fbCam/frsize", 1, false, payloadOut); });
 
-  timer.setTimeout(4000, mqttSubscribe);
+  timer.setTimeout(7000, mqttSubscribe);
 }
 
 void onmqttSubscribe(uint16_t packetId, uint8_t qos) {
@@ -123,4 +124,26 @@ void wifiEvents(WiFiEvent_t event, WiFiEventInfo_t info) {
       timer.setTimeout(wifiReconnectTimer, connectToWifi);    // attempt to reconnect to WiFi
       break;
   }
+}
+
+void serverEvents() {
+  server.on("/snapshot", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (Debug) Serial.println(F("Snapshot requested"));
+    flushCam();
+    camera_fb_t *fb = esp_camera_fb_get();
+    if (!fb) {
+      request->send(500, "text/plain", "Camera capture failed");
+      return;
+    }
+
+    AsyncResponseStream *response = request->beginResponseStream("image/jpeg", fb->len);
+    response->addHeader("Content-Disposition", "inline; filename=snapshot.jpg");
+    response->write(fb->buf, fb->len);
+    request->send(response);
+
+    esp_camera_fb_return(fb);
+  }); 
+
+  server.begin();       // AsyncWebServer for MQTT
+  mjpegServer.begin();  // Sync server for MJPEG stream}
 }
