@@ -18,15 +18,12 @@ void setup() {
   setup_camera();
   // initFS();
   WiFi.onEvent(wifiEvents);
-  connectToWifi();      // includes initMqtt();
-  serverEvents();
-
+  serverEvents();      // moved to initWifi() ??
+  connectToWifi();     // includes initMqtt();
   initGPIO();
-  streamCheckTimerID = timer.setInterval(streamCheckTimer, checkStream);
 }
 
 void loop() {
   // Accept client only if allowed and no one is streaming
-
   timer.run();
 }

@@ -15,7 +15,7 @@ bool streaming = false;     // Indicates active client
 int streamTimerID;
 int streamCheckTimerID;
 uint16_t streamTimer = 4000; // Delay between stream samples (ms)
-uint16_t streamCheckTimer = 3000; // Delay between stream checks
+const uint16_t streamCheckTimer = 3000; // Delay between stream checks
 
 //======================================
 // ESP32CAM FUNCTIONS 
@@ -44,6 +44,7 @@ void sendFrame() {
 }
 
 void startStream(WiFiClient newClient) {
+  timer.deleteTimer(streamCheckTimerID);
   if (streamTimerID >= 0) timer.deleteTimer(streamTimerID);  // just in case
   client = newClient;
   streaming = true;
@@ -52,6 +53,7 @@ void startStream(WiFiClient newClient) {
     "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
   client.write(header, strlen(header));
   if (Debug) Serial.println(F("Streaming"));
+  timer.deleteTimer(streamCheckTimerID);
   streamTimerID = timer.setInterval(streamTimer, sendFrame);
 }
 
@@ -60,7 +62,7 @@ void checkStream() {
     WiFiClient newClient = mjpegServer.available();
     if (newClient) startStream(newClient);
   }
-  if (Debug && streamTimer > 999) Serial.printf_P(PSTR("Stream check: %u\n"), (uint8_t)allowStream);
+  if (Debug) Serial.printf_P(PSTR("Stream check: %u\n"), (uint8_t)allowStream);
 }
 
 void setup_camera() {
@@ -91,25 +93,25 @@ void setup_camera() {
   config.jpeg_quality = 15;
   config.fb_count = 1;
 
-    // if(config.pixel_format == PIXFORMAT_JPEG){
-    //   if(psramFound()){
-    //     // config.jpeg_quality = 10;
-    //     // config.fb_count = 2;
-    //     // config.grab_mode = CAMERA_GRAB_LATEST;
-    //   } 
-    //   else {
-    //     // Limit the frame size when PSRAM is not available
-    //     config.frame_size = FRAMESIZE_SVGA;
-    //     config.fb_location = CAMERA_FB_IN_DRAM;
-    //   }
-    // } 
-    // else {
-    //   // Best option for face detection/recognition
-    //   config.frame_size = FRAMESIZE_240X240;
-    //   #if CONFIG_IDF_TARGET_ESP32S3
-    //       config.fb_count = 2;
-    //   #endif
-    // }
+  // if(config.pixel_format == PIXFORMAT_JPEG){
+  //   if(psramFound()){
+  //     // config.jpeg_quality = 10;
+  //     // config.fb_count = 2;
+  //     // config.grab_mode = CAMERA_GRAB_LATEST;
+  //   } 
+  //   else {
+  //     // Limit the frame size when PSRAM is not available
+  //     config.frame_size = FRAMESIZE_SVGA;
+  //     config.fb_location = CAMERA_FB_IN_DRAM;
+  //   }
+  // } 
+  // else {
+  //   // Best option for face detection/recognition
+  //   config.frame_size = FRAMESIZE_240X240;
+  //   #if CONFIG_IDF_TARGET_ESP32S3
+  //       config.fb_count = 2;
+  //   #endif
+  // }
 
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
@@ -117,7 +119,6 @@ void setup_camera() {
     while(true);
   }
   sensor = esp_camera_sensor_get();
-  // timer.setInterval(streamCheckTimer, checkStream);
 }
 
 // Flush staled frames
@@ -131,29 +132,30 @@ void flushCam() {
 }
 
 unsigned char* codedPhoto(size_t &codedLen)  {
-  flushCam() ;  
+  flushCam() ; 
+
   // Capture frame
   camera_fb_t *fb = esp_camera_fb_get();
   if (!fb) {
     if (Debug) Serial.println(F("Camera capture failed"));
     return nullptr;
   }
-  
   if (Debug) Serial.printf(PSTR("fb->len: %d\n"), fb->len);
-  // Calculate required size for base64
-  size_t bufferLen = 4 * ((fb->len + 2) / 3) + 4;     // base64 expands data ~33%
-  unsigned char *codedBuf = (unsigned char *)malloc(bufferLen);  // +1 for null-terminator
-
+  
+  // Calculate required memroy for base64 encoding
+  size_t bufferLen = 4 * (1 + (fb->len + 2) / 3);     // base64 expands data ~33%
+  unsigned char *codedBuf = (unsigned char *)malloc(bufferLen);
   if (!codedBuf) {
-    Serial.println(F("Not enough memory for Base64 encoding"));
+    if (Debug) Serial.println(F("Not enough memory for Base64 encoding"));
     esp_camera_fb_return(fb);
     codedLen = 0;
     return nullptr;
   }
 
-  // Determine the output size
+  // Determine the output size 
   size_t outputLen = 0;
-  int ret = mbedtls_base64_encode(codedBuf, bufferLen, &outputLen, fb->buf, fb->len);
+  // int ret = mbedtls_base64_encode(codedBuf, bufferLen, &outputLen, fb->buf, fb->len);
+  int ret = mbedtls_base64_encode(codedBuf, bufferLen, &codedLen, fb->buf, fb->len);
   if (ret != 0) {
     if (Debug) Serial.printf(PSTR("Base64 encode failed: %d\n"), ret);
     free(codedBuf);
@@ -161,10 +163,12 @@ unsigned char* codedPhoto(size_t &codedLen)  {
     codedLen = 0;
     return nullptr;
   }
+
   // Null-terminate the codedBuf string for safety
-  codedBuf[outputLen] = 0;
-  codedLen = outputLen;
-  if (Debug) Serial.printf(PSTR("Base64 size: %d\n"), outputLen);
+  // codedBuf[outputLen] = 0;
+  // codedLen = outputLen;
+  codedBuf[codedLen] = 0;
+  if (Debug) Serial.printf(PSTR("Base64 size: %d\n"), codedLen);
   esp_camera_fb_return(fb);
   return codedBuf;
 }

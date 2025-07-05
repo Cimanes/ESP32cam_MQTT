@@ -134,7 +134,11 @@ void handlePhoto(const char* topic, const char* payload) {
 
 void handleStream(const char* topic, const char* payload) {
   allowStream = payload[0] == '1';
-  if (!allowStream) stopStream();
+  if (streamCheckTimerID >= 0) timer.deleteTimer(streamCheckTimerID);
+
+  if (!allowStream)  stopStream();  
+  else streamCheckTimerID = timer.setInterval(streamCheckTimer, checkStream);
+
   strncpy(payloadOut, allowStream ? "1" : "0", 2);
   mqttClient.publish("fbCam/stream", 1, false, payloadOut);
   if (Debug) Serial.printf_P(PSTR("[MQTT]> stream: %s\n"), payloadOut);   

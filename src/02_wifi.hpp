@@ -202,9 +202,10 @@ const uint16_t wifiReconnectTimer = 3000; // Delay to reconnect to Wifi after fa
 // Hard coded Wifi initialization 
 //==================================================
   void initWiFi() {
-    const IPAddress subnet(255, 255, 255, 0)  ;   // Subnet mask required for static IP address
-    const IPAddress gateway(192, 168, 1, 1) ;   // Had coded router IP
-    const IPAddress dns(192, 168, 1, 1)     ;   // Had coded router IP
+    const IPAddress subnet(255, 255, 255, 0);   // Subnet mask required for static IP address
+    const IPAddress gateway(192, 168, 1, 1) ;   // Hard coded router IP
+    const IPAddress dns(192, 168, 1, 1)     ;   // Hard coded router IP
+    // const IPAddress dns(212, 230, 135, 1);
     IPAddress localIP                       ;   // IP address of the ESP
     localIP.fromString(esp_ip)              ;            
 
@@ -221,10 +222,9 @@ const uint16_t wifiReconnectTimer = 3000; // Delay to reconnect to Wifi after fa
       delay(1000);
     }
     if (Debug) Serial.println(WiFi.localIP());
-
-   
-    // server.begin();       // AsyncWebServer for MQTT
-    // mjpegServer.begin();  // Sync server for MJPEG stream  
+    
+    server.begin();       // AsyncWebServer for MQTT
+    mjpegServer.begin();  // Sync server for MJPEG stream  
   }
 #endif
 

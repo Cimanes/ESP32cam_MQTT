@@ -6,9 +6,10 @@
 // =============================================
 // VARIABLES
 // =============================================
-// FSInfo fs_info;             // FSInfo is a structure (defined in LittleFS library) that holds information about the file system
 const byte paramSize = 25;  // Maximum size for SSID and Password
-  
+// uint16_t totalKB = 0;
+// uint16_t usedKB  = 0;
+
 // =============================================
 // MANAGE FILE SYSTEM
 // =============================================
@@ -18,10 +19,11 @@ void initFS() {
   }
   else {
     if (Debug) Serial.println(F("File Sys mounted"));
-    // LittleFS.info(fs_info); // Populates fs_info structure with info about LittleFS
-    // totalBytes = fs_info.totalBytes/1000;  // Total memory in LittleFS
+    // totalKB = LittleFS.totalBytes()/1024;  // Total memory in LittleFS
+    // usedKB = LittleFS.usedBytes()/1024;    // Used memory in LittleFS
   }
 }
+
 
 // ===============================================================================
 // Write file to LittleFS

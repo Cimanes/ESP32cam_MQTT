@@ -4,14 +4,13 @@
 #include <Arduino.h>
 #include <SimpleTimer.h>
 
-
 //======================================
 // GLOBAL VARIABLES
 //======================================
 #define FLASH_PIN 4
 bool Debug = true;
 SimpleTimer timer;          // SimpleTimer object
-static char strBuffer[100];      // Dummy char array to send MQTT message
+// static char strBuffer[100]; // Dummy char array to send MQTT message
 
 // =====================================
 // Setup GPIO's

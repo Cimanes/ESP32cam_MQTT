@@ -50,13 +50,13 @@ void onMqttConnect(bool sessionPresent) {
   timer.setTimeout(3000, []() { mqttClient.publish("fbCam/flash", 1, false, "0"); });
 
   // snprintf(payloadOut, 6, "%u", CHUNK_SIZE);
-  timer.setTimeout(4000, []() { mqttClient.publish("fbCam/chunk", 1, false, "1000"); });
+  // timer.setTimeout(4000, []() { mqttClient.publish("fbCam/chunk", 1, false, "1000"); });
 
-  itoa(sensor->status.quality, payloadOut, 10);
-  timer.setTimeout(5000, []() { mqttClient.publish("fbCam/qty", 1, false, payloadOut); });
+  // itoa(sensor->status.quality, payloadOut, 10);
+  // timer.setTimeout(5000, []() { mqttClient.publish("fbCam/qty", 1, false, payloadOut); });
 
-  itoa(sensor->status.framesize, payloadOut, 10);  
-  timer.setTimeout(6000, []() { mqttClient.publish("fbCam/frsize", 1, false, payloadOut); });
+  // itoa(sensor->status.framesize, payloadOut, 10);  
+  // timer.setTimeout(6000, []() { mqttClient.publish("fbCam/frsize", 1, false, payloadOut); });
 
   timer.setTimeout(7000, mqttSubscribe);
 }
@@ -114,6 +114,7 @@ void wifiEvents(WiFiEvent_t event, WiFiEventInfo_t info) {
         Serial.println(WiFi.localIP());
         Serial.println(F("-> initWiFi done"));
       } 
+      delay(3000);
       initMqtt();
       if (Debug) Serial.println(F("MQTT Connecting..."));
       mqttClient.connect();
@@ -144,6 +145,6 @@ void serverEvents() {
     esp_camera_fb_return(fb);
   }); 
 
-  server.begin();       // AsyncWebServer for MQTT
-  mjpegServer.begin();  // Sync server for MJPEG stream}
+  // server.begin();       // AsyncWebServer for MQTT
+  // mjpegServer.begin();  // Sync server for MJPEG stream}
 }
