@@ -17,10 +17,13 @@ const Handler handlers[] = {      // topic:
   { "qty", handleQty },           // cfg/qty
   { "chunk", handleChunk },       // cfg/chunk
   { "size", handleSize },         // cfg/size
-  { "bright", handleBright },         // cfg/size
-  { "contrast", handleContrast },         // cfg/size
-  { "saturate", handleSaturate },         // cfg/size
-  { "period", handlePeriod }     // cfg/period
+  { "bright", handleBright },     // cfg/size
+  { "contrast", handleContrast }, // cfg/size
+  { "saturate", handleSaturate }, // cfg/size
+  { "hmirror", handleMirror },    // cfg/hmirror
+  { "vflip", handleFlip },        // cfg/vflip
+  { "period", handlePeriod }      // cfg/period
+
   #ifdef WIFI_MANAGER
     { "wifi", handleWifi },       // cam/wifi
   #endif

@@ -42,6 +42,8 @@ void handleFlash(const char *topic, const char *payload) {
   if (Debug) Serial.printf_P(PSTR("[MQTT]> flash: %s\n"), payloadOut);
 }
 
+
+
 void handleIP(const char* topic, const char* payload) {
   strncpy(payloadOut, esp_ip, sizeof(esp_ip));
   mqttClient.publish("fbCam/espIP", 1, false, esp_ip);
@@ -156,7 +158,7 @@ void handleBright(const char* topic, const char* payload) {
     return;
   }
 
-  const int val = atoi(payload);
+  const int8_t val = atoi(payload);
   if (val < -2 || val > 2) {
     if (Debug) Serial.println(F("Invalid brightness"));
     return;
@@ -177,7 +179,7 @@ void handleContrast(const char* topic, const char* payload) {
     return;
   }
 
-  const int val = atoi(payload);
+  const int8_t val = atoi(payload);
   if (val < -2 || val > 2) {
     if (Debug) Serial.println(F("Invalid contrast"));
     return;
@@ -198,7 +200,7 @@ void handleSaturate(const char* topic, const char* payload) {
     return;
   }
 
-  const int val = atoi(payload);
+  const int8_t val = atoi(payload);
   if (val < -2 || val > 2) {
     if (Debug) Serial.println(F("Invalid saturate"));
     return;
@@ -213,3 +215,31 @@ void handleSaturate(const char* topic, const char* payload) {
   if (Debug) Serial.printf_P(PSTR("[MQTT]> saturate: %s\n"), payloadOut);
 }
 
+void handleMirror(const char *topic, const char *payload) {
+  const int8_t val = atoi(payload);
+  if (val < 0 || val > 1) {
+    if (Debug) Serial.println(F("Invalid saturate"));
+    return;  if (sensor->set_hmirror(sensor, val) != 0) {
+    if(Debug) Serial.println(F("Mirror set failed"));
+    return;
+  };
+
+  itoa(sensor->status.hmirror, payloadOut, 10);
+  mqttClient.publish("fbCam/hmirror", 1, false, payloadOut);
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> hmirror: %s\n"), payloadOut);
+}
+
+void handleFlip(const char *topic, const char *payload) {
+  const int8_t val = atoi(payload);
+  if (val < 0 || val > 1) {
+    if (Debug) Serial.println(F("Invalid saturate"));
+    return;
+  }  if (sensor->set_vflip(sensor, val) != 0) {
+    if(Debug) Serial.println(F("Flip set failed"));
+    return;
+  };
+
+  itoa(sensor->status.vflip, payloadOut, 10);
+  mqttClient.publish("fbCam/vflip", 1, false, payloadOut);
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> vflip: %s\n"), payloadOut);
+}
