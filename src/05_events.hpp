@@ -8,15 +8,19 @@ struct Handler {                  // Handler structure to manage handlers
   void (*handler)(const char* topic, const char* payload);
 };
 const Handler handlers[] = {      // topic:
-  { "photo", handlePhoto },       // cam/photo
-  { "flash", handleFlash },       // cam/flash
-  { "qty", handleQty },           // cam/qty
-  { "size", handleSize },         // cam/size
-  { "debug", handleDebug },       // esp/debug
+  { "debug", handleDebug },       // cam/debug
   { "espIP", handleIP},           // cam/espIP
   { "reboot", handleReboot },     // cam/reboot
-  { "chunk", handleChunk },       // cam/chunk
-  { "stream", handleStream },         // cam/wifi
+  { "flash", handleFlash },       // cam/flash
+  { "photo", handlePhoto },       // cam/photo
+  { "stream", handleStream },     // cam/stream
+  { "qty", handleQty },           // cfg/qty
+  { "chunk", handleChunk },       // cfg/chunk
+  { "size", handleSize },         // cfg/size
+  { "bright", handleBright },         // cfg/size
+  { "contrast", handleContrast },         // cfg/size
+  { "saturate", handleSaturate },         // cfg/size
+  { "period", handlePeriod }     // cfg/period
   #ifdef WIFI_MANAGER
     { "wifi", handleWifi },       // cam/wifi
   #endif
@@ -50,13 +54,13 @@ void onMqttConnect(bool sessionPresent) {
   timer.setTimeout(3000, []() { mqttClient.publish("fbCam/flash", 1, false, "0"); });
 
   // snprintf(payloadOut, 6, "%u", CHUNK_SIZE);
-  // timer.setTimeout(4000, []() { mqttClient.publish("fbCam/chunk", 1, false, "1000"); });
+  timer.setTimeout(4000, []() { mqttClient.publish("fbCam/chunk", 1, false, "1000"); });
 
-  // itoa(sensor->status.quality, payloadOut, 10);
-  // timer.setTimeout(5000, []() { mqttClient.publish("fbCam/qty", 1, false, payloadOut); });
+  itoa(sensor->status.quality, payloadOut, 10);
+  timer.setTimeout(5000, []() { mqttClient.publish("fbCam/qty", 1, false, payloadOut); });
 
-  // itoa(sensor->status.framesize, payloadOut, 10);  
-  // timer.setTimeout(6000, []() { mqttClient.publish("fbCam/frsize", 1, false, payloadOut); });
+  itoa(sensor->status.framesize, payloadOut, 10);  
+  timer.setTimeout(6000, []() { mqttClient.publish("fbCam/frsize", 1, false, payloadOut); });
 
   timer.setTimeout(7000, mqttSubscribe);
 }
@@ -144,7 +148,4 @@ void serverEvents() {
 
     esp_camera_fb_return(fb);
   }); 
-
-  // server.begin();       // AsyncWebServer for MQTT
-  // mjpegServer.begin();  // Sync server for MJPEG stream}
 }

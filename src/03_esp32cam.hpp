@@ -4,7 +4,7 @@
 #include "esp_camera.h"
 #define CAMERA_MODEL_AI_THINKER   // Select camera model.
 #include "camera_pins.h"
-#include "mbedtls/base64.h"       // Required for encoding.
+#include "mbedtls/base64.h"       // Required for base64 encoding.
 
 //======================================
 // ESP32CAM VARIABLES
@@ -14,12 +14,22 @@ bool allowStream = false;   // Controlled by MQTT
 bool streaming = false;     // Indicates active client
 int streamTimerID;
 int streamCheckTimerID;
-uint16_t streamTimer = 4000; // Delay between stream samples (ms)
+uint16_t streamTimer = 1000; // Delay between stream samples (ms)
 const uint16_t streamCheckTimer = 3000; // Delay between stream checks
 
 //======================================
 // ESP32CAM FUNCTIONS 
 //======================================
+// Flush staled frames
+void flushCam() {
+  for (int i = 0; i < 2; i++) {
+    camera_fb_t *fbt = esp_camera_fb_get();
+    if (fbt) esp_camera_fb_return(fbt);
+    delay(30);  // Give time for new frame
+  }
+  if(Debug) Serial.println(F("Flushed"));
+}
+
 void stopStream() {
   if (client.connected()) {
     client.stop();
@@ -40,21 +50,23 @@ void sendFrame() {
   client.write(fb->buf, fb->len);
   client.write("\r\n", 2);
   esp_camera_fb_return(fb);
-  if (Debug && streamTimer > 999) Serial.println(F("Stream sent"));
+  if (Debug && streamTimer > 999) Serial.println(F("Frame sent"));
 }
 
 void startStream(WiFiClient newClient) {
   timer.deleteTimer(streamCheckTimerID);
   if (streamTimerID >= 0) timer.deleteTimer(streamTimerID);  // just in case
   client = newClient;
-  streaming = true;
-  const char *header =
-    "HTTP/1.1 200 OK\r\n"
-    "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
-  client.write(header, strlen(header));
-  if (Debug) Serial.println(F("Streaming"));
-  timer.deleteTimer(streamCheckTimerID);
-  streamTimerID = timer.setInterval(streamTimer, sendFrame);
+  if (client.connected()) {
+    flushCam();
+    streaming = true;
+    const char *header =
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
+    client.write(header, strlen(header));
+    if (Debug) Serial.println(F("Streaming"));
+    streamTimerID = timer.setInterval(streamTimer, sendFrame);
+  }
 }
 
 void checkStream() {
@@ -95,23 +107,11 @@ void setup_camera() {
 
   // if(config.pixel_format == PIXFORMAT_JPEG){
   //   if(psramFound()){
-  //     // config.jpeg_quality = 10;
-  //     // config.fb_count = 2;
-  //     // config.grab_mode = CAMERA_GRAB_LATEST;
+  //     config.jpeg_quality = 10;
+  //     config.fb_count = 2;
+  //     config.grab_mode = CAMERA_GRAB_LATEST;
   //   } 
-  //   else {
-  //     // Limit the frame size when PSRAM is not available
-  //     config.frame_size = FRAMESIZE_SVGA;
-  //     config.fb_location = CAMERA_FB_IN_DRAM;
-  //   }
-  // } 
-  // else {
-  //   // Best option for face detection/recognition
-  //   config.frame_size = FRAMESIZE_240X240;
-  //   #if CONFIG_IDF_TARGET_ESP32S3
-  //       config.fb_count = 2;
-  //   #endif
-  // }
+
 
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
@@ -121,15 +121,7 @@ void setup_camera() {
   sensor = esp_camera_sensor_get();
 }
 
-// Flush staled frames
-void flushCam() {
-  for (int i = 0; i < 2; i++) {
-    camera_fb_t *fbt = esp_camera_fb_get();
-    if (fbt) esp_camera_fb_return(fbt);
-    delay(30);  // Give time for new frame
-  }
-  if(Debug) Serial.println(F("Flushed"));
-}
+
 
 unsigned char* codedPhoto(size_t &codedLen)  {
   flushCam() ; 
@@ -154,7 +146,6 @@ unsigned char* codedPhoto(size_t &codedLen)  {
 
   // Determine the output size 
   size_t outputLen = 0;
-  // int ret = mbedtls_base64_encode(codedBuf, bufferLen, &outputLen, fb->buf, fb->len);
   int ret = mbedtls_base64_encode(codedBuf, bufferLen, &codedLen, fb->buf, fb->len);
   if (ret != 0) {
     if (Debug) Serial.printf(PSTR("Base64 encode failed: %d\n"), ret);
@@ -165,8 +156,6 @@ unsigned char* codedPhoto(size_t &codedLen)  {
   }
 
   // Null-terminate the codedBuf string for safety
-  // codedBuf[outputLen] = 0;
-  // codedLen = outputLen;
   codedBuf[codedLen] = 0;
   if (Debug) Serial.printf(PSTR("Base64 size: %d\n"), codedLen);
   esp_camera_fb_return(fb);
