@@ -15,7 +15,7 @@ bool streaming = false;     // Indicates active client
 int streamTimerID;
 int streamCheckTimerID;
 uint16_t streamTimer = 1000; // Delay between stream samples (ms)
-const uint16_t streamCheckTimer = 3000; // Delay between stream checks
+const uint16_t streamCheckTimer = 3000; // Delay between stream requirement checks
 
 //======================================
 // ESP32CAM FUNCTIONS 

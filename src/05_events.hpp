@@ -8,12 +8,14 @@ struct Handler {                  // Handler structure to manage handlers
   void (*handler)(const char* topic, const char* payload);
 };
 const Handler handlers[] = {      // topic:
+
   { "debug", handleDebug },       // cam/debug
   { "espIP", handleIP},           // cam/espIP
   { "reboot", handleReboot },     // cam/reboot
   { "flash", handleFlash },       // cam/flash
   { "photo", handlePhoto },       // cam/photo
   { "stream", handleStream },     // cam/stream
+
   { "qty", handleQty },           // cfg/qty
   { "chunk", handleChunk },       // cfg/chunk
   { "size", handleSize },         // cfg/size
@@ -22,6 +24,9 @@ const Handler handlers[] = {      // topic:
   { "saturate", handleSaturate }, // cfg/size
   { "hmirror", handleMirror },    // cfg/hmirror
   { "vflip", handleFlip },        // cfg/vflip
+  { "ceiling", handleCeiling },   // cfg/ceiling
+  { "effect", handleEffect },     // cfg/effect
+  { "wbmode", handleWbmode },     // cfg/wbmode
   { "period", handlePeriod }      // cfg/period
 
   #ifdef WIFI_MANAGER
@@ -49,22 +54,16 @@ void onmqttDisconnect(AsyncMqttClientDisconnectReason reason) {
   // Then subscribe to commands
 void onMqttConnect(bool sessionPresent) {
   timer.setTimeout(1000, []() { mqttClient.publish("fbCam/espIP", 1, false, esp_ip); });
-
   // strncpy(payloadOut, Debug ? "1" : "0", 2);
   timer.setTimeout(2000, []() { mqttClient.publish("fbCam/debug", 1, false, "1"); });
-
   // strncpy(payloadOut, digitalRead(FLASH_PIN) ? "1" : "0", 2);
   timer.setTimeout(3000, []() { mqttClient.publish("fbCam/flash", 1, false, "0"); });
-
   // snprintf(payloadOut, 6, "%u", CHUNK_SIZE);
   timer.setTimeout(4000, []() { mqttClient.publish("fbCam/chunk", 1, false, "1000"); });
-
   itoa(sensor->status.quality, payloadOut, 10);
   timer.setTimeout(5000, []() { mqttClient.publish("fbCam/qty", 1, false, payloadOut); });
-
   itoa(sensor->status.framesize, payloadOut, 10);  
   timer.setTimeout(6000, []() { mqttClient.publish("fbCam/frsize", 1, false, payloadOut); });
-
   timer.setTimeout(7000, mqttSubscribe);
 }
 
