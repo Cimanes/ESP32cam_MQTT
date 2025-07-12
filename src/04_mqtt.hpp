@@ -18,12 +18,12 @@ uint16_t CHUNK_SIZE = 1000;  // adjust as needed
 AsyncMqttClient mqttClient;
 const char* subTopics[] = { "cam/#", "cfg/#" };
 const byte subLen = sizeof(subTopics) / sizeof(subTopics[0]);
-// static char topicOut[20];  // "fb/" = 4 + null terminator
+static char topicOut[20];
 static char payloadOut[20];
 
-unsigned int mqttReconnectTimerID      ; // Timer to reconnect to MQTT after failed
-const uint16_t mqttReconnectTimer = 15000; // Delay to reconnect to Wifi after failed
-int8_t payloadInt;                        // Dummy MQTT payload as integer
+unsigned int mqttReconnectTimerID      ;    // Timer to reconnect to MQTT after failed
+const uint16_t mqttReconnectTimer = 15000;  // Delay to reconnect to Wifi after failed
+int8_t payloadInt;                          // Dummy MQTT payload as integer
 
 //======================================
 // MQTT Message handlers
@@ -37,16 +37,12 @@ void mqttSubscribe() {
 }
 
 void handleDebug(const char* topic, const char* payload) { 
-  Debug = payload[0] == '1';
+  Debug = payload[0] == '1' ? true : false;
   strncpy(payloadOut, Debug ? "1" : "0", 2);
-  mqttClient.publish("fbCam/debug", 1, false, payloadOut); 
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> Debug: %s\n"), payloadOut); 
 }
 
 void handleIP(const char* topic, const char* payload) {
   strncpy(payloadOut, esp_ip, sizeof(esp_ip));
-  mqttClient.publish("fbCam/espIP", 1, false, esp_ip);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> espIP: %s\n"), payloadOut);
 }
 
 void handleReboot(const char* topic, const char* payload) {
@@ -55,11 +51,9 @@ void handleReboot(const char* topic, const char* payload) {
   timer.setTimeout(3000, []() { esp_restart(); } );
 }
 
-void handleFlash(const char *topic, const char *payload) {
-  digitalWrite(FLASH_PIN, payload[0] == '1');
+void handleFlash(const char* topic, const char* payload) {
+  digitalWrite(FLASH_PIN, payload[0] == '1' ? HIGH : LOW);
   strncpy(payloadOut, digitalRead(FLASH_PIN) ? "1" : "0", 2);
-  mqttClient.publish("fbCam/flash", 1, true, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> flash: %s\n"), payloadOut);
 }
 
 void handlePhoto(const char* topic, const char* payload) {
@@ -77,62 +71,38 @@ void handlePhoto(const char* topic, const char* payload) {
     mqttClient.publish("fbCam/photo", 0, false, (const char *)(codedBuf + i), len);
   }
   mqttClient.publish("fbCam/photo", 0, false, "done");
-  
   free(codedBuf);
   if (Debug) Serial.printf(PSTR("\n[MQTT]> photo\n"));
 }
 
 void handleStream(const char* topic, const char* payload) {
-  allowStream = payload[0] == '1';
+  allowStream = payload[0] == '1' ? true : false;
   if (streamCheckTimerID >= 0) timer.deleteTimer(streamCheckTimerID);
   if (!allowStream)  stopStream();
   else streamCheckTimerID = timer.setInterval(streamCheckTimer, checkStream);
-
   strncpy(payloadOut, allowStream ? "1" : "0", 2);
-  mqttClient.publish("fbCam/stream", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> stream: %s\n"), payloadOut);   
 }
 
 void handlePeriod(const char* topic, const char* payload) { 
   streamTimer = atoi(payload);
   snprintf(payloadOut, 6, "%u", streamTimer);
-  mqttClient.publish("fbCam/period", 1, false, payloadOut); 
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> Period: %s\n"), payloadOut);
 }
 
 void handleChunk(const char* topic, const char* payload) { 
   CHUNK_SIZE = atoi(payload);
   snprintf(payloadOut, 6, "%u", CHUNK_SIZE);
-  mqttClient.publish("fbCam/chunk", 1, false, payloadOut); 
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> Debug: %s\n"), payloadOut); 
 }
 
 void handleQty(const char* topic, const char* payload) {
-  if (!sensor || !payload) {
-    if (Debug) Serial.println(F("Sensor or payload is null"));
-    return;
-  }
   payloadInt = atoi(payload);
-  if (payloadInt <= 0 || payloadInt > 63) {
-    if (Debug) Serial.println(F("Invalid qty"));
-    return;
-  }
-
   if (sensor->set_quality(sensor, payloadInt) != 0) {
     if (Debug) Serial.println(F("Quality set failed"));
     return;
   }
-
   itoa(sensor->status.quality, payloadOut, 10);
-  mqttClient.publish("fbCam/qty", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> qty: %s\n"), payloadOut);
 }
 
 void handleSize(const char* topic, const char* payload) {
-  if (!sensor || !payload) {
-    if (Debug) Serial.println(F("Sensor or payload is null"));
-    return;
-  }
   payloadInt = atoi(payload);
   if (payloadInt <= 13) {  // validate index between 0 and 13
     if (sensor->set_framesize(sensor, (framesize_t)payloadInt) != 0) {
@@ -140,8 +110,6 @@ void handleSize(const char* topic, const char* payload) {
       return;
     }
     itoa(sensor->status.framesize, payloadOut, 10);  
-    mqttClient.publish("fbCam/frsize", 1, false, payloadOut);
-    if(Debug) Serial.printf(PSTR("[MQTT]> frame size: %s\n"), payloadOut);
   } 
   else {
     if(Debug) Serial.printf(PSTR("Invalid frame size: %d\n"), payloadInt);
@@ -149,188 +117,129 @@ void handleSize(const char* topic, const char* payload) {
 }
 
 void handleBright(const char* topic, const char* payload) {
-  if (!sensor || !payload) {
-    if (Debug) Serial.println(F("Sensor or payload is null"));
-    return;
-  }
-   payloadInt = atoi(payload);
-  if (payloadInt < -2 || payloadInt > 2) {
-    if (Debug) Serial.println(F("Invalid brightness"));
-    return;
-  }
-  // if (sensor->set_brightness_contrast(sensor, payloadInt, contrast) != 0) {
+  payloadInt = atoi(payload);
   if (sensor->set_brightness(sensor, payloadInt) != 0) {
     if (Debug) Serial.println(F("Brightness set failed"));
     return;
   }
   itoa(sensor->status.brightness, payloadOut, 10);
-  mqttClient.publish("fbCam/bright", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> bright: %s\n"), payloadOut);
 }
 
 void handleContrast(const char* topic, const char* payload) {
-  if (!sensor || !payload) {
-    if (Debug) Serial.println(F("Sensor or payload is null"));
-    return;
-  }
   payloadInt = atoi(payload);
-  if (payloadInt < -2 || payloadInt > 2) {
-    if (Debug) Serial.println(F("Invalid contrast"));
-    return;
-  }
-  // if (sensor->set_brightness_contrast(sensor, brightness, payloadInt) != 0) {
   if (sensor->set_contrast(sensor, payloadInt) != 0) {
     if (Debug) Serial.println(F("Contrast set failed"));
     return;
   }
   itoa(sensor->status.contrast, payloadOut, 10);
-  mqttClient.publish("fbCam/contrast", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> contrast: %s\n"), payloadOut);
 }
 
 void handleSaturate(const char* topic, const char* payload) {
-  if (!sensor || !payload) {
-    if (Debug) Serial.println(F("Sensor or payload is null"));
-    return;
-  }
   payloadInt = atoi(payload);
-  if (payloadInt < -2 || payloadInt > 2) {
-    if (Debug) Serial.println(F("Invalid saturate"));
-    return;
-  }
   if (sensor->set_saturation(sensor, payloadInt) != 0) {
     if (Debug) Serial.println(F("Saturate set failed"));
     return;
   }
   itoa(sensor->status.saturation, payloadOut, 10);
-  mqttClient.publish("fbCam/saturate", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> saturate: %s\n"), payloadOut);
 }
 
-void handleMirror(const char *topic, const char *payload) {
+void handleMirror(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
-  if (payloadInt < 0 || payloadInt > 1) {
-    if (Debug) Serial.println(F("Invalid mirror"));
-    return;  
-    if (sensor->set_hmirror(sensor, payloadInt) != 0) {
-      if(Debug) Serial.println(F("Mirror set failed"));
-      return;
-    };
-  }
-  itoa(sensor->status.hmirror, payloadOut, 10);
-  mqttClient.publish("fbCam/hmirror", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> hmirror: %s\n"), payloadOut);
-}
-
-void handleFlip(const char *topic, const char *payload) {
-  payloadInt = atoi(payload);
-  if (payloadInt < 0 || payloadInt > 1) {
-    if (Debug) Serial.println(F("Invalid Flip"));
+  if (sensor->set_hmirror(sensor, payloadInt) != 0) {
+    if(Debug) Serial.println(F("Mirror set failed"));
     return;
-  }  if (sensor->set_vflip(sensor, payloadInt) != 0) {
+  };
+  itoa(sensor->status.hmirror, payloadOut, 10);
+}
+
+void handleFlip(const char *topic, const char* payload) {
+  payloadInt = atoi(payload);
+  if (sensor->set_vflip(sensor, payloadInt) != 0) {
     if(Debug) Serial.println(F("Flip set failed"));
     return;
   };
-
   itoa(sensor->status.vflip, payloadOut, 10);
-  mqttClient.publish("fbCam/vflip", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> vflip: %s\n"), payloadOut);
 }
 
-void handleCeiling(const char *topic, const char *payload) {
+void handleCeiling(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
-  if (payloadInt < 0 || payloadInt > 6) {
-    if (Debug) Serial.println(F("Invalid ceiling"));
-    return;
-  }  if (sensor->set_gainceiling(sensor, (gainceiling_t)payloadInt) != 0) {
+  if (sensor->set_gainceiling(sensor, (gainceiling_t)payloadInt) != 0) {
     if(Debug) Serial.println(F("Flip set failed"));
     return;
   };
   itoa(sensor->status.gainceiling, payloadOut, 10);
-  mqttClient.publish("fbCam/ceiling", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> ceiling: %s\n"), payloadOut);
 }
 
 
 void handleEffect(const char* topic, const char* payload) {
-  if (!sensor || !payload) {
-    if (Debug) Serial.println(F("Sensor or payload is null"));
-    return;
-  }
   payloadInt = atoi(payload);
-  if (payloadInt < 0 || payloadInt > 6) {
-    if (Debug) Serial.println(F("Invalid effect"));
-    return;
-  }
   if (sensor->set_special_effect(sensor, payloadInt) != 0) {
     if (Debug) Serial.println(F("Saturate set failed"));
     return;
   }
   itoa(sensor->status.special_effect, payloadOut, 10);
-  mqttClient.publish("fbCam/effect", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> effect: %s\n"), payloadOut);
 }
 
 void handleWbmode(const char* topic, const char* payload) {
-  if (!sensor || !payload) {
-    if (Debug) Serial.println(F("Sensor or payload is null"));
-    return;
-  }
   payloadInt = atoi(payload);
-  if (payloadInt < 0 || payloadInt > 4) {
-    if (Debug) Serial.println(F("Invalid wbmode"));
-    return;
-  }
   if (sensor->set_wb_mode(sensor, payloadInt) != 0) {
     if (Debug) Serial.println(F("Saturate set failed"));
     return;
   }
   itoa(sensor->status.wb_mode, payloadOut, 10);
-  mqttClient.publish("fbCam/wbmode", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> wbmode: %s\n"), payloadOut);
 }
 
-void handleAwb(const char *topic, const char *payload) {
+void handleAwb(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
-  if (payloadInt < 0 || payloadInt > 1) {
-    if (Debug) Serial.println(F("Invalid AWB"));
-    return;
-  }  if (sensor->set_whitebal(sensor, payloadInt) != 0) {
+  if (sensor->set_whitebal(sensor, payloadInt) != 0) {
     if(Debug) Serial.println(F("AWB set failed"));
     return;
   };
-
   itoa(sensor->status.awb, payloadOut, 10);
-  mqttClient.publish("fbCam/awb", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> awb: %s\n"), payloadOut);
 }
 
-void handleWbgain(const char *topic, const char *payload) {
+void handleWbgain(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
-  if (payloadInt < 0 || payloadInt > 1) {
-    if (Debug) Serial.println(F("Invalid WBgain"));
-    return;
-  }  if (sensor->set_awb_gain(sensor, payloadInt) != 0) {
+  if (sensor->set_awb_gain(sensor, payloadInt) != 0) {
     if(Debug) Serial.println(F("WBgain set failed"));
     return;
   };
 
   itoa(sensor->status.awb_gain, payloadOut, 10);
-  mqttClient.publish("fbCam/wbgain", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> wbgain: %s\n"), payloadOut);
 }
 
-void handleLenc(const char *topic, const char *payload) {
+void handleLenc(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
-  if (payloadInt < 0 || payloadInt > 1) {
-    if (Debug) Serial.println(F("Invalid LenC"));
-    return;
-  }  if (sensor->set_lenc(sensor, payloadInt) != 0) {
+  if (sensor->set_lenc(sensor, payloadInt) != 0) {
     if(Debug) Serial.println(F("LenC set failed"));
     return;
   };
-
   itoa(sensor->status.lenc, payloadOut, 10);
-  mqttClient.publish("fbCam/lenc", 1, false, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> lenc: %s\n"), payloadOut);
+}
+
+void handleExpos(const char *topic, const char* payload) {
+  payloadInt = atoi(payload);
+  if (sensor->set_aec_value(sensor, 10 * payloadInt) != 0) {
+    if(Debug) Serial.println(F("Expos. set failed"));
+    return;
+  };
+  itoa(sensor->status.aec_value, payloadOut, 10);
+}
+
+void handleAec2(const char *topic, const char* payload) {
+  payloadInt = atoi(payload);
+  if (sensor->set_aec2(sensor, payloadInt) != 0) {
+    if(Debug) Serial.println(F("AEC2 set failed"));
+    return;
+  };
+  itoa(sensor->status.aec2, payloadOut, 10);
+}
+
+void handleAelevel(const char *topic, const char* payload) {
+  payloadInt = atoi(payload);
+  if (sensor->set_ae_level(sensor, payloadInt) != 0) {
+    if(Debug) Serial.println(F("AEC level set failed"));
+    return;
+  };
+  itoa(sensor->status.ae_level, payloadOut, 10);
 }

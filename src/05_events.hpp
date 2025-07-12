@@ -7,43 +7,39 @@ struct Handler {                  // Handler structure to manage handlers
   const char* topic;    
   void (*handler)(const char* topic, const char* payload);
 };
-const Handler camHandlers[] = {   // topic  cam/...:
+const Handler handlers[] = {      // topic  
   { "debug", handleDebug },       // cam/debug   **
   { "espIP", handleIP},           // cam/espIP
   { "reboot", handleReboot },     // cam/reboot
   { "flash", handleFlash },       // cam/flash   **
   { "photo", handlePhoto },       // cam/photo
   { "stream", handleStream },     // cam/stream  **
-  { "period", handlePeriod },     // cam/period
-  { "chunk", handleChunk },       // cam/chunk
-
+  { "period", handlePeriod },     // cam/period  **
+  { "chunk", handleChunk },       // cam/chunk   **
   #ifdef WIFI_MANAGER
     { "wifi", handleWifi },       // cam/wifi
   #endif
   #ifdef USE_OTA
-    { "OTA", handleOTA }
+    { "OTA", handleOTA },         // cam/ota  
   #endif
+  { "qty", handleQty },           // cfg/qty: Quality
+  { "size", handleSize },         // cfg/size: Frame size
+  { "bright", handleBright },     // cfg/bright: Brightness
+  { "contrast", handleContrast }, // cfg/contrast 
+  { "saturate", handleSaturate }, // cfg/saturate 
+  { "hmirror", handleMirror },    // cfg/hmirror: Horizontal mirror
+  { "vflip", handleFlip },        // cfg/vflip: Vertical flip
+  { "ceiling", handleCeiling },   // cfg/ceiling: Auto gain ceiling
+  { "effect", handleEffect },     // cfg/effect: special effects
+  { "awb", handleAwb },           // cfg/awb: Auto white balance
+  { "wbgain", handleWbgain },     // cfg/wbgain: White balance gain
+  { "wbmode", handleWbmode },     // cfg/wbmode: White balance mode
+  { "lenc", handleLenc },         // cfg/lenc: Lens correction
+  { "expos", handleExpos },       // cfg/expos: Exposure
+  { "aeclevel", handleAelevel },  // cfg/aelevel: Exposure
+  { "aec2", handleAec2 },         // cfg/aec2: Exposure
 };
-const byte camHandlerCount = sizeof(camHandlers) / sizeof(camHandlers[0]);
-
-const Handler cfgHandlers[] = {   // topic    /cfg...
-  { "qty", handleQty },           // cfg/qty      *
-  { "size", handleSize },         // cfg/size     *
-  { "bright", handleBright },     // cfg/size     *
-  { "contrast", handleContrast }, // cfg/contrast *
-  { "saturate", handleSaturate }, // cfg/saturate *
-  { "hmirror", handleMirror },    // cfg/hmirror  *
-  { "vflip", handleFlip },        // cfg/vflip    *
-  { "ceiling", handleCeiling },   // cfg/ceiling  *
-  { "effect", handleEffect },     // cfg/effect   *
-  { "awb", handleAwb },           // cfg/awb      *
-  { "wbgain", handleWbgain },     // cfg/wbgain   *
-  { "wbmode", handleWbmode },     // cfg/wbmode   *
-  { "lenc", handleLenc }          // cfg/lenc     *
-
-};
-const byte cfgHandlerCount = sizeof(cfgHandlers) / sizeof(cfgHandlers[0]);
-
+const byte handlerCount = sizeof(handlers) / sizeof(handlers[0]);
 
 //======================================
 // MQTT Events
@@ -92,21 +88,25 @@ void onmqttMessage(const char* topic, char* payload, const AsyncMqttClientMessag
     Serial.printf_P(PSTR(">[MQTT] %s: %s\n"), topic, payload);
     // Serial.printf_P(PSTR("qos: %i, dup: %i, retain: %i, len: %i, index: %i, total: %i \n"), properties.qos, properties.dup, properties.retain, len, index, total);
   }
-  // Process MQTT messages according to handlers
-  if (strstr(topic, "cfg/")) { // cfg/...
-    for (byte i = 0; i < cfgHandlerCount; i++) {
-      if (strstr(topic, cfgHandlers[i].topic)) {
-        cfgHandlers[i].handler(topic, payload);
-        return;
-      }
-    }
+  // Validate payload and sensor if applicable 
+  if (!payload) {
+    if (Debug) Serial.println(F("Null Payload!"));
+    return;
   }
-  else if (strstr(topic, "cam/")) { // cam/...
-    for (byte i = 0; i < camHandlerCount; i++) {
-      if (strstr(topic, camHandlers[i].topic)) {
-        camHandlers[i].handler(topic, payload);
-        return;
+  if (!sensor && strncmp(topic, "cfg/", 4) == 0) { // fbCam/...
+    if (Debug) Serial.println(F("Null Sensor!"));
+    return;
+  }
+  // Process MQTT messages according to handlers  
+  for (byte i = 0; i < handlerCount; i++) {
+    if (strstr(topic, handlers[i].topic)) {
+      handlers[i].handler(topic, payload);
+      if (handlers[i].topic != "reboot" && handlers[i].topic != "photo") {
+        sprintf(topicOut, "fbCam/%s", handlers[i].topic);
+        mqttClient.publish(topicOut, 1, false, payloadOut);
+        if (Debug) Serial.printf_P(PSTR("[MQTT]> %s: %s\n"), handlers[i].topic, payloadOut); 
       }
+      return;
     }
   }
 }

@@ -2,9 +2,33 @@
 // LIBRARIES
 //======================================
 #include "esp_camera.h"
-#define CAMERA_MODEL_AI_THINKER   // Select camera model.
-#include "camera_pins.h"
 #include "mbedtls/base64.h"       // Required for base64 encoding.
+#define CAMERA_MODEL_AI_THINKER   // Select camera model.
+
+//======================================
+// ESP32CAM PINS
+//======================================
+#if defined(CAMERA_MODEL_AI_THINKER)
+#define PWDN_GPIO_NUM     32
+#define RESET_GPIO_NUM    -1
+#define XCLK_GPIO_NUM      0
+#define SIOD_GPIO_NUM     26
+#define SIOC_GPIO_NUM     27
+
+#define Y9_GPIO_NUM       35
+#define Y8_GPIO_NUM       34
+#define Y7_GPIO_NUM       39
+#define Y6_GPIO_NUM       36
+#define Y5_GPIO_NUM       21
+#define Y4_GPIO_NUM       19
+#define Y3_GPIO_NUM       18
+#define Y2_GPIO_NUM        5
+#define VSYNC_GPIO_NUM    25
+#define HREF_GPIO_NUM     23
+#define PCLK_GPIO_NUM     22
+#define FLASH_LED_NUM      
+#define LED_GPIO_NUM      33
+#endif
 
 //======================================
 // ESP32CAM VARIABLES
@@ -93,8 +117,8 @@ void setup_camera() {
   config.pin_pclk = PCLK_GPIO_NUM;
   config.pin_vsync = VSYNC_GPIO_NUM;
   config.pin_href = HREF_GPIO_NUM;
-  config.pin_sscb_sda = SIOD_GPIO_NUM;
-  config.pin_sscb_scl = SIOC_GPIO_NUM;
+  config.pin_sccb_sda = SIOD_GPIO_NUM;
+  config.pin_sccb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
 
@@ -105,14 +129,6 @@ void setup_camera() {
   config.jpeg_quality = 15;
   config.fb_count = 1;
 
-  // if(config.pixel_format == PIXFORMAT_JPEG){
-  //   if(psramFound()){
-  //     config.jpeg_quality = 10;
-  //     config.fb_count = 2;
-  //     config.grab_mode = CAMERA_GRAB_LATEST;
-  //   } 
-
-
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
     Serial.printf(PSTR("Camera init failed. Error: 0x%x"), err);
@@ -120,8 +136,6 @@ void setup_camera() {
   }
   sensor = esp_camera_sensor_get();
 }
-
-
 
 unsigned char* codedPhoto(size_t &codedLen)  {
   flushCam() ; 
