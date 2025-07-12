@@ -7,27 +7,15 @@ struct Handler {                  // Handler structure to manage handlers
   const char* topic;    
   void (*handler)(const char* topic, const char* payload);
 };
-const Handler handlers[] = {      // topic:
-
-  { "debug", handleDebug },       // cam/debug
+const Handler camHandlers[] = {   // topic  cam/...:
+  { "debug", handleDebug },       // cam/debug   **
   { "espIP", handleIP},           // cam/espIP
   { "reboot", handleReboot },     // cam/reboot
-  { "flash", handleFlash },       // cam/flash
+  { "flash", handleFlash },       // cam/flash   **
   { "photo", handlePhoto },       // cam/photo
-  { "stream", handleStream },     // cam/stream
-
-  { "qty", handleQty },           // cfg/qty
-  { "chunk", handleChunk },       // cfg/chunk
-  { "size", handleSize },         // cfg/size
-  { "bright", handleBright },     // cfg/size
-  { "contrast", handleContrast }, // cfg/size
-  { "saturate", handleSaturate }, // cfg/size
-  { "hmirror", handleMirror },    // cfg/hmirror
-  { "vflip", handleFlip },        // cfg/vflip
-  { "ceiling", handleCeiling },   // cfg/ceiling
-  { "effect", handleEffect },     // cfg/effect
-  { "wbmode", handleWbmode },     // cfg/wbmode
-  { "period", handlePeriod }      // cfg/period
+  { "stream", handleStream },     // cam/stream  **
+  { "period", handlePeriod },     // cam/period
+  { "chunk", handleChunk },       // cam/chunk
 
   #ifdef WIFI_MANAGER
     { "wifi", handleWifi },       // cam/wifi
@@ -36,7 +24,26 @@ const Handler handlers[] = {      // topic:
     { "OTA", handleOTA }
   #endif
 };
-const byte handlerCount = sizeof(handlers) / sizeof(handlers[0]);
+const byte camHandlerCount = sizeof(camHandlers) / sizeof(camHandlers[0]);
+
+const Handler cfgHandlers[] = {   // topic    /cfg...
+  { "qty", handleQty },           // cfg/qty      *
+  { "size", handleSize },         // cfg/size     *
+  { "bright", handleBright },     // cfg/size     *
+  { "contrast", handleContrast }, // cfg/contrast *
+  { "saturate", handleSaturate }, // cfg/saturate *
+  { "hmirror", handleMirror },    // cfg/hmirror  *
+  { "vflip", handleFlip },        // cfg/vflip    *
+  { "ceiling", handleCeiling },   // cfg/ceiling  *
+  { "effect", handleEffect },     // cfg/effect   *
+  { "awb", handleAwb },           // cfg/awb      *
+  { "wbgain", handleWbgain },     // cfg/wbgain   *
+  { "wbmode", handleWbmode },     // cfg/wbmode   *
+  { "lenc", handleLenc }          // cfg/lenc     *
+
+};
+const byte cfgHandlerCount = sizeof(cfgHandlers) / sizeof(cfgHandlers[0]);
+
 
 //======================================
 // MQTT Events
@@ -85,12 +92,21 @@ void onmqttMessage(const char* topic, char* payload, const AsyncMqttClientMessag
     Serial.printf_P(PSTR(">[MQTT] %s: %s\n"), topic, payload);
     // Serial.printf_P(PSTR("qos: %i, dup: %i, retain: %i, len: %i, index: %i, total: %i \n"), properties.qos, properties.dup, properties.retain, len, index, total);
   }
-
   // Process MQTT messages according to handlers
-  for (byte i = 0; i < handlerCount; i++) {
-    if (strstr(topic, handlers[i].topic)) {
-      handlers[i].handler(topic, payload);
-      return;
+  if (strstr(topic, "cfg/")) { // cfg/...
+    for (byte i = 0; i < cfgHandlerCount; i++) {
+      if (strstr(topic, cfgHandlers[i].topic)) {
+        cfgHandlers[i].handler(topic, payload);
+        return;
+      }
+    }
+  }
+  else if (strstr(topic, "cam/")) { // cam/...
+    for (byte i = 0; i < camHandlerCount; i++) {
+      if (strstr(topic, camHandlers[i].topic)) {
+        camHandlers[i].handler(topic, payload);
+        return;
+      }
     }
   }
 }

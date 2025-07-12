@@ -19,5 +19,4 @@
 #define PCLK_GPIO_NUM     22
 #define FLASH_LED_NUM      
 #define LED_GPIO_NUM      33
-
 #endif

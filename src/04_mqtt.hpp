@@ -36,11 +36,11 @@ void mqttSubscribe() {
   }
 }
 
-void handleFlash(const char *topic, const char *payload) {
-  digitalWrite(FLASH_PIN, payload[0] == '1');
-  strncpy(payloadOut, digitalRead(FLASH_PIN) ? "1" : "0", 2);
-  mqttClient.publish("fbCam/flash", 1, true, payloadOut);
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> flash: %s\n"), payloadOut);
+void handleDebug(const char* topic, const char* payload) { 
+  Debug = payload[0] == '1';
+  strncpy(payloadOut, Debug ? "1" : "0", 2);
+  mqttClient.publish("fbCam/debug", 1, false, payloadOut); 
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> Debug: %s\n"), payloadOut); 
 }
 
 void handleIP(const char* topic, const char* payload) {
@@ -49,17 +49,17 @@ void handleIP(const char* topic, const char* payload) {
   if (Debug) Serial.printf_P(PSTR("[MQTT]> espIP: %s\n"), payloadOut);
 }
 
-void handleDebug(const char* topic, const char* payload) { 
-  Debug = payload[0] == '1';
-  strncpy(payloadOut, Debug ? "1" : "0", 2);
-  mqttClient.publish("fbCam/debug", 1, false, payloadOut); 
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> Debug: %s\n"), payloadOut); 
-}
-
 void handleReboot(const char* topic, const char* payload) {
   if (Debug) Serial.println(F("[MQTT]> Rebooting"));
   mqttClient.disconnect();
   timer.setTimeout(3000, []() { esp_restart(); } );
+}
+
+void handleFlash(const char *topic, const char *payload) {
+  digitalWrite(FLASH_PIN, payload[0] == '1');
+  strncpy(payloadOut, digitalRead(FLASH_PIN) ? "1" : "0", 2);
+  mqttClient.publish("fbCam/flash", 1, true, payloadOut);
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> flash: %s\n"), payloadOut);
 }
 
 void handlePhoto(const char* topic, const char* payload) {
@@ -93,6 +93,13 @@ void handleStream(const char* topic, const char* payload) {
   if (Debug) Serial.printf_P(PSTR("[MQTT]> stream: %s\n"), payloadOut);   
 }
 
+void handlePeriod(const char* topic, const char* payload) { 
+  streamTimer = atoi(payload);
+  snprintf(payloadOut, 6, "%u", streamTimer);
+  mqttClient.publish("fbCam/period", 1, false, payloadOut); 
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> Period: %s\n"), payloadOut);
+}
+
 void handleChunk(const char* topic, const char* payload) { 
   CHUNK_SIZE = atoi(payload);
   snprintf(payloadOut, 6, "%u", CHUNK_SIZE);
@@ -100,19 +107,11 @@ void handleChunk(const char* topic, const char* payload) {
   if (Debug) Serial.printf_P(PSTR("[MQTT]> Debug: %s\n"), payloadOut); 
 }
 
-void handlePeriod(const char* topic, const char* payload) { 
-  streamTimer = atoi(payload);
-  snprintf(payloadOut, 6, "%u", streamTimer);
-  mqttClient.publish("fbCam/period", 1, false, payloadOut); 
-  if (Debug) Serial.printf_P(PSTR("[MQTT]> Period: %s\n"), payloadOut);
- }
-
 void handleQty(const char* topic, const char* payload) {
   if (!sensor || !payload) {
     if (Debug) Serial.println(F("Sensor or payload is null"));
     return;
   }
-
   payloadInt = atoi(payload);
   if (payloadInt <= 0 || payloadInt > 63) {
     if (Debug) Serial.println(F("Invalid qty"));
@@ -289,4 +288,49 @@ void handleWbmode(const char* topic, const char* payload) {
   itoa(sensor->status.wb_mode, payloadOut, 10);
   mqttClient.publish("fbCam/wbmode", 1, false, payloadOut);
   if (Debug) Serial.printf_P(PSTR("[MQTT]> wbmode: %s\n"), payloadOut);
+}
+
+void handleAwb(const char *topic, const char *payload) {
+  payloadInt = atoi(payload);
+  if (payloadInt < 0 || payloadInt > 1) {
+    if (Debug) Serial.println(F("Invalid AWB"));
+    return;
+  }  if (sensor->set_whitebal(sensor, payloadInt) != 0) {
+    if(Debug) Serial.println(F("AWB set failed"));
+    return;
+  };
+
+  itoa(sensor->status.awb, payloadOut, 10);
+  mqttClient.publish("fbCam/awb", 1, false, payloadOut);
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> awb: %s\n"), payloadOut);
+}
+
+void handleWbgain(const char *topic, const char *payload) {
+  payloadInt = atoi(payload);
+  if (payloadInt < 0 || payloadInt > 1) {
+    if (Debug) Serial.println(F("Invalid WBgain"));
+    return;
+  }  if (sensor->set_awb_gain(sensor, payloadInt) != 0) {
+    if(Debug) Serial.println(F("WBgain set failed"));
+    return;
+  };
+
+  itoa(sensor->status.awb_gain, payloadOut, 10);
+  mqttClient.publish("fbCam/wbgain", 1, false, payloadOut);
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> wbgain: %s\n"), payloadOut);
+}
+
+void handleLenc(const char *topic, const char *payload) {
+  payloadInt = atoi(payload);
+  if (payloadInt < 0 || payloadInt > 1) {
+    if (Debug) Serial.println(F("Invalid LenC"));
+    return;
+  }  if (sensor->set_lenc(sensor, payloadInt) != 0) {
+    if(Debug) Serial.println(F("LenC set failed"));
+    return;
+  };
+
+  itoa(sensor->status.lenc, payloadOut, 10);
+  mqttClient.publish("fbCam/lenc", 1, false, payloadOut);
+  if (Debug) Serial.printf_P(PSTR("[MQTT]> lenc: %s\n"), payloadOut);
 }
