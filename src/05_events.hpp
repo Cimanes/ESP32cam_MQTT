@@ -35,9 +35,10 @@ const Handler handlers[] = {      // topic
   { "wbgain", handleWbgain },     // cfg/wbgain: White balance gain
   { "wbmode", handleWbmode },     // cfg/wbmode: White balance mode
   { "lenc", handleLenc },         // cfg/lenc: Lens correction
-  { "expos", handleExpos },       // cfg/expos: Exposure
-  { "aeclevel", handleAelevel },  // cfg/aelevel: Exposure
-  { "aec2", handleAec2 },         // cfg/aec2: Exposure
+  { "aec", handleAec },           // cfg/aec: Automatic Exposure Control
+  { "expos", handleExpos },       // cfg/expos: Manual Exposure time (with AEC = OFF)
+  { "agc", handleAgc },           // cfg/agc: Automatic Gain Control
+  { "gain", handleGain }         // cfg/agcgain: Manual gain (with AGC = OFF)
 };
 const byte handlerCount = sizeof(handlers) / sizeof(handlers[0]);
 

@@ -42,7 +42,7 @@ void handleDebug(const char* topic, const char* payload) {
 }
 
 void handleIP(const char* topic, const char* payload) {
-  strncpy(payloadOut, esp_ip, sizeof(esp_ip));
+  strncpy(payloadOut, esp_ip, strlen(esp_ip) + 1);
 }
 
 void handleReboot(const char* topic, const char* payload) {
@@ -143,6 +143,7 @@ void handleSaturate(const char* topic, const char* payload) {
   itoa(sensor->status.saturation, payloadOut, 10);
 }
 
+// Horizontal Mirror image
 void handleMirror(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
   if (sensor->set_hmirror(sensor, payloadInt) != 0) {
@@ -152,6 +153,7 @@ void handleMirror(const char *topic, const char* payload) {
   itoa(sensor->status.hmirror, payloadOut, 10);
 }
 
+// Vertical Flip image
 void handleFlip(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
   if (sensor->set_vflip(sensor, payloadInt) != 0) {
@@ -161,6 +163,7 @@ void handleFlip(const char *topic, const char* payload) {
   itoa(sensor->status.vflip, payloadOut, 10);
 }
 
+// Gain ceiling
 void handleCeiling(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
   if (sensor->set_gainceiling(sensor, (gainceiling_t)payloadInt) != 0) {
@@ -170,7 +173,7 @@ void handleCeiling(const char *topic, const char* payload) {
   itoa(sensor->status.gainceiling, payloadOut, 10);
 }
 
-
+// Special effects
 void handleEffect(const char* topic, const char* payload) {
   payloadInt = atoi(payload);
   if (sensor->set_special_effect(sensor, payloadInt) != 0) {
@@ -180,6 +183,7 @@ void handleEffect(const char* topic, const char* payload) {
   itoa(sensor->status.special_effect, payloadOut, 10);
 }
 
+// White balance mode selector
 void handleWbmode(const char* topic, const char* payload) {
   payloadInt = atoi(payload);
   if (sensor->set_wb_mode(sensor, payloadInt) != 0) {
@@ -189,6 +193,7 @@ void handleWbmode(const char* topic, const char* payload) {
   itoa(sensor->status.wb_mode, payloadOut, 10);
 }
 
+// Automatic white balance
 void handleAwb(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
   if (sensor->set_whitebal(sensor, payloadInt) != 0) {
@@ -198,6 +203,7 @@ void handleAwb(const char *topic, const char* payload) {
   itoa(sensor->status.awb, payloadOut, 10);
 }
 
+// White balance gain
 void handleWbgain(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
   if (sensor->set_awb_gain(sensor, payloadInt) != 0) {
@@ -208,6 +214,7 @@ void handleWbgain(const char *topic, const char* payload) {
   itoa(sensor->status.awb_gain, payloadOut, 10);
 }
 
+// Lens correction
 void handleLenc(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
   if (sensor->set_lenc(sensor, payloadInt) != 0) {
@@ -217,6 +224,17 @@ void handleLenc(const char *topic, const char* payload) {
   itoa(sensor->status.lenc, payloadOut, 10);
 }
 
+// Automatic exposure control
+void handleAec(const char *topic, const char* payload) {
+  payloadInt = atoi(payload);
+  if (sensor->set_exposure_ctrl(sensor, payloadInt) != 0) {
+    if(Debug) Serial.println(F("AEC set failed"));
+    return;
+  };
+  itoa(sensor->status.aec, payloadOut, 10);
+}
+
+// Manual Exposure time (with AEC = OFF)
 void handleExpos(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
   if (sensor->set_aec_value(sensor, 10 * payloadInt) != 0) {
@@ -226,20 +244,22 @@ void handleExpos(const char *topic, const char* payload) {
   itoa(sensor->status.aec_value, payloadOut, 10);
 }
 
-void handleAec2(const char *topic, const char* payload) {
+// Automatic gain control
+void handleAgc(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
-  if (sensor->set_aec2(sensor, payloadInt) != 0) {
-    if(Debug) Serial.println(F("AEC2 set failed"));
+  if (sensor->set_gain_ctrl(sensor, payloadInt) != 0) {
+    if(Debug) Serial.println(F("AGC set failed"));
     return;
   };
-  itoa(sensor->status.aec2, payloadOut, 10);
+  itoa(sensor->status.agc, payloadOut, 10);
 }
 
-void handleAelevel(const char *topic, const char* payload) {
+// Manual gain (with AGC = OFF)
+void handleGain(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
-  if (sensor->set_ae_level(sensor, payloadInt) != 0) {
-    if(Debug) Serial.println(F("AEC level set failed"));
+  if (sensor->set_agc_gain(sensor, payloadInt) != 0) {
+    if(Debug) Serial.println(F("AGC set failed"));
     return;
   };
-  itoa(sensor->status.ae_level, payloadOut, 10);
+  itoa(sensor->status.agc_gain, payloadOut, 10);
 }
