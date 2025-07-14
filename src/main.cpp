@@ -16,7 +16,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println();
   setup_camera();
-  // initFS();
+  initFS();
   WiFi.onEvent(wifiEvents);
   serverEvents();      // moved to initWifi() ??
   connectToWifi();     // includes initMqtt();

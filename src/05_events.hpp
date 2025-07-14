@@ -26,19 +26,20 @@ const Handler handlers[] = {      // topic
   { "size", handleSize },         // cfg/size: Frame size
   { "bright", handleBright },     // cfg/bright: Brightness
   { "contrast", handleContrast }, // cfg/contrast 
-  { "saturate", handleSaturate }, // cfg/saturate 
-  { "hmirror", handleMirror },    // cfg/hmirror: Horizontal mirror
-  { "vflip", handleFlip },        // cfg/vflip: Vertical flip
+  { "satur", handleSaturate },    // cfg/satur 
+  { "mirror", handleMirror },    // cfg/mirror: Horizontal mirror
+  { "flip", handleFlip },        // cfg/vflip: Vertical flip
   { "ceiling", handleCeiling },   // cfg/ceiling: Auto gain ceiling
   { "effect", handleEffect },     // cfg/effect: special effects
   { "awb", handleAwb },           // cfg/awb: Auto white balance
-  { "wbgain", handleWbgain },     // cfg/wbgain: White balance gain
+  { "wbg", handleWbgain },        // cfg/wbg: White balance gain
   { "wbmode", handleWbmode },     // cfg/wbmode: White balance mode
   { "lenc", handleLenc },         // cfg/lenc: Lens correction
   { "aec", handleAec },           // cfg/aec: Automatic Exposure Control
   { "expos", handleExpos },       // cfg/expos: Manual Exposure time (with AEC = OFF)
   { "agc", handleAgc },           // cfg/agc: Automatic Gain Control
-  { "gain", handleGain }         // cfg/agcgain: Manual gain (with AGC = OFF)
+  { "gain", handleGain },         // cfg/agcgain: Manual gain (with AGC = OFF)
+  { "status", handleStatus },     // cfg/status: JSON with complete sensor status
 };
 const byte handlerCount = sizeof(handlers) / sizeof(handlers[0]);
 
@@ -54,21 +55,12 @@ void onmqttDisconnect(AsyncMqttClientDisconnectReason reason) {
 }
 
 // When MQTT Connects:
-  // Publish curent ESP32-CAM feedback messages, 
-  // Then subscribe to commands
+// Publish curent ESP32-CAM feedback messages, 
+// Then subscribe to commands
 void onMqttConnect(bool sessionPresent) {
-  timer.setTimeout(1000, []() { mqttClient.publish("fbCam/espIP", 1, false, esp_ip); });
-  // strncpy(payloadOut, Debug ? "1" : "0", 2);
-  timer.setTimeout(2000, []() { mqttClient.publish("fbCam/debug", 1, false, "1"); });
-  // strncpy(payloadOut, digitalRead(FLASH_PIN) ? "1" : "0", 2);
-  timer.setTimeout(3000, []() { mqttClient.publish("fbCam/flash", 1, false, "0"); });
-  // snprintf(payloadOut, 6, "%u", CHUNK_SIZE);
-  timer.setTimeout(4000, []() { mqttClient.publish("fbCam/chunk", 1, false, "1000"); });
-  itoa(sensor->status.quality, payloadOut, 10);
-  timer.setTimeout(5000, []() { mqttClient.publish("fbCam/qty", 1, false, payloadOut); });
-  itoa(sensor->status.framesize, payloadOut, 10);  
-  timer.setTimeout(6000, []() { mqttClient.publish("fbCam/frsize", 1, false, payloadOut); });
-  timer.setTimeout(7000, mqttSubscribe);
+  handleStatus("", "");
+  mqttClient.publish("fbCam/status", 1, false, payloadOut, strlen(payloadOut));
+  timer.setTimeout(1000, mqttSubscribe);
 }
 
 void onmqttSubscribe(uint16_t packetId, uint8_t qos) {
@@ -85,7 +77,7 @@ void onmqttPublish(uint16_t packetId) {
 
 void onmqttMessage(const char* topic, char* payload, const AsyncMqttClientMessageProperties properties, const size_t len, const size_t index, const size_t total) {
   if (Debug) {
-    memcpy(payload + min(len, PRINT_LEN), "\0", 1);  // Ensure it's a valid C-string
+    memcpy(payload + min(len, PRINT_LEN), "\0", 1);  // Ensure it's a valid C-string; limit printed length
     Serial.printf_P(PSTR(">[MQTT] %s: %s\n"), topic, payload);
     // Serial.printf_P(PSTR("qos: %i, dup: %i, retain: %i, len: %i, index: %i, total: %i \n"), properties.qos, properties.dup, properties.retain, len, index, total);
   }

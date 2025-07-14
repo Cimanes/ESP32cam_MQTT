@@ -1,4 +1,11 @@
 // =============================================
+// OPTIONS
+// =============================================
+#define WIFI_MANAGER  // Initialize Wifi using wifi manager.
+#define USE_OTA       // Enable OTA
+// #define TOLEDO     // Choose CIMANES, TOLEDO, TRAVEL in case of Hardcoded Wifi credentials
+
+// =============================================
 // LIBRARIES
 // =============================================
 // #include <WiFiUdp.h>
@@ -8,13 +15,10 @@
   #include <AsyncElegantOTA.h>
 #endif
 
+
 // =============================================
 // GLOBAL VARIABLES
 // =============================================
-// #define WIFI_MANAGER
-// #define USE_OTA
-#define TOLEDO
-
 // Create AsyncWebServer object on port 80 and attach event handlers:
 AsyncWebServer server(80) ;   // Required for HTTP
 AsyncEventSource events("/events");
@@ -115,7 +119,11 @@ const uint16_t wifiReconnectTimer = 3000; // Delay to reconnect to Wifi after fa
     WiFi.begin(ssid, pass);   // STA mode is default
 
     Serial.print(F("Connecting"));
-    while (WiFi.status() != WL_CONNECTED) {  Serial.print('.'); delay(1000); }
+    while (WiFi.status() != WL_CONNECTED) { Serial.print('.'); delay(1000); }
+    if (Debug) Serial.println(WiFi.localIP());
+    
+    server.begin();       // AsyncWebServer for MQTT snapshot in new tab
+    mjpegServer.begin();  // Sync server for MJPEG streaming
     return true;
   }
 
@@ -217,14 +225,11 @@ const uint16_t wifiReconnectTimer = 3000; // Delay to reconnect to Wifi after fa
     WiFi.begin(ssid, pass);   // STA mode is default
 
     Serial.print(F("Connecting"));
-    while (WiFi.status() != WL_CONNECTED) {
-      Serial.print('.');
-      delay(1000);
-    }
+    while (WiFi.status() != WL_CONNECTED) { Serial.print('.'); delay(1000); }
     if (Debug) Serial.println(WiFi.localIP());
     
-    server.begin();       // AsyncWebServer for MQTT
-    mjpegServer.begin();  // Sync server for MJPEG stream  
+    server.begin();       // AsyncWebServer for MQTT snapshot in new tab
+    mjpegServer.begin();  // Sync server for MJPEG streaming
   }
 #endif
 

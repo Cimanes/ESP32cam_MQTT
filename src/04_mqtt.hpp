@@ -1,4 +1,13 @@
 //======================================
+// OPTIONS
+//======================================
+#define MQTT_HOST IPAddress(192,168,1,128)  // broker IP (raspberry pi or other server running MQTT broker)
+#define MQTT_PORT 1883
+#define BROKER_USER "cimanes"     // MQTT BROKER USER
+#define BROKER_PASS "Naya-1006"   // MQTT BROKER PASSWORD
+#define MQTT_PING_INTERVAL 30     // MQTT "Keep-Alive" interval (s)
+
+//======================================
 // LIBRARIES
 //======================================
 #include <AsyncMqttClient.h>
@@ -6,20 +15,14 @@
 //======================================
 // GLOBAL VARIABLES
 //======================================
-#define MQTT_HOST IPAddress(192,168,1,128)  // broker IP
-#define MQTT_PORT 1883
-#define BROKER_USER "cimanes"     // MQTT BROKER USER
-#define BROKER_PASS "Naya-1006"   // MQTT BROKER PASSWORD
-#define MQTT_PING_INTERVAL 30     // MQTT "Keep-Alive" interval (s)
-
 // Publish in chunks (MQTT payload max ~256k, adjust as needed)
-uint16_t CHUNK_SIZE = 1000;  // adjust as needed
+uint16_t chunkSize = 1000;  // adjust as needed
 
 AsyncMqttClient mqttClient;
 const char* subTopics[] = { "cam/#", "cfg/#" };
 const byte subLen = sizeof(subTopics) / sizeof(subTopics[0]);
 static char topicOut[20];
-static char payloadOut[20];
+static char payloadOut[256];
 
 unsigned int mqttReconnectTimerID      ;    // Timer to reconnect to MQTT after failed
 const uint16_t mqttReconnectTimer = 15000;  // Delay to reconnect to Wifi after failed
@@ -51,6 +54,26 @@ void handleReboot(const char* topic, const char* payload) {
   timer.setTimeout(3000, []() { esp_restart(); } );
 }
 
+#ifdef WIFI_MANAGER
+  void handleWifi(const char* topic, const char* payload) {
+      deleteFile(LittleFS, ssidPath);
+      deleteFile(LittleFS, passPath);
+      deleteFile(LittleFS, ipPath);
+      deleteFile(LittleFS, routerPath);
+      deleteFile(LittleFS, hostPath);  
+      mqttClient.publish("fb/wifi", 1, false, "clear");
+  }
+#endif
+
+#ifdef USE_OTA
+  void handleOTA(const char* topic, const char* payload) {
+    if(Debug) Serial.println(F("OTA requested"));
+    timer.deleteTimer(mqttReconnectTimerID);  // avoid reconnect to MQTT while reconnecting to Wi-Fi
+    mqttClient.disconnect();
+    startOTAServer();
+  }
+#endif
+
 void handleFlash(const char* topic, const char* payload) {
   digitalWrite(FLASH_PIN, payload[0] == '1' ? HIGH : LOW);
   strncpy(payloadOut, digitalRead(FLASH_PIN) ? "1" : "0", 2);
@@ -63,11 +86,10 @@ void handlePhoto(const char* topic, const char* payload) {
     if (Debug) Serial.println(F("No codedBuf image to publish"));
     return;
   }
-  
   // Chunk and publish parts
-  for (size_t i = 0; i < codedLen; i += CHUNK_SIZE) {
+  for (size_t i = 0; i < codedLen; i += chunkSize) {
     if (Debug) Serial.printf(PSTR("%d - "), i);
-    size_t len = (i + CHUNK_SIZE < codedLen) ? CHUNK_SIZE : (codedLen - i);
+    size_t len = (i + chunkSize < codedLen) ? chunkSize : (codedLen - i);
     mqttClient.publish("fbCam/photo", 0, false, (const char *)(codedBuf + i), len);
   }
   mqttClient.publish("fbCam/photo", 0, false, "done");
@@ -89,8 +111,8 @@ void handlePeriod(const char* topic, const char* payload) {
 }
 
 void handleChunk(const char* topic, const char* payload) { 
-  CHUNK_SIZE = atoi(payload);
-  snprintf(payloadOut, 6, "%u", CHUNK_SIZE);
+  chunkSize = atoi(payload);
+  snprintf(payloadOut, 6, "%u", chunkSize);
 }
 
 void handleQty(const char* topic, const char* payload) {
@@ -210,7 +232,6 @@ void handleWbgain(const char *topic, const char* payload) {
     if(Debug) Serial.println(F("WBgain set failed"));
     return;
   };
-
   itoa(sensor->status.awb_gain, payloadOut, 10);
 }
 
@@ -235,6 +256,7 @@ void handleAec(const char *topic, const char* payload) {
 }
 
 // Manual Exposure time (with AEC = OFF)
+// Note: factor 10 to keep uint8_t (0-1200 --> 0-120)
 void handleExpos(const char *topic, const char* payload) {
   payloadInt = atoi(payload);
   if (sensor->set_aec_value(sensor, 10 * payloadInt) != 0) {
@@ -262,4 +284,57 @@ void handleGain(const char *topic, const char* payload) {
     return;
   };
   itoa(sensor->status.agc_gain, payloadOut, 10);
+}
+
+void handleStatus(const char* topic, const char* payload) {
+  snprintf(payloadOut, sizeof(payloadOut), 
+    "{"
+    "\"ip\":\"%s\"," //
+    "\"debug\":%d,"  //
+    "\"flash\":%d,"  //
+    "\"chunk\":%d,"  //
+    "\"qty\":%d,"    //
+    "\"size\":%d,"   //
+    "\"bright\":%d," //
+    "\"contr\":%d,"  //
+    "\"satur\":%d,"  //
+    "\"awb\":%d,"    //
+    "\"wbg\":%d,"    //
+    "\"wbmode\":%d," //
+    "\"lenc\":%d,"   //
+    "\"aec\":%d,"    //
+    "\"expos\":%d,"  //
+    "\"agc\":%d,"    //
+    "\"ceiling\":%d,"//
+    "\"gain\":%d,"   //
+    "\"mirror\":%d," //
+    "\"flip\":%d,"   //
+    "\"effect\":%d," //
+    "\"period\":%d"  //
+    "}",
+    esp_ip,
+    Debug ? 1 : 0,
+    digitalRead(FLASH_PIN) ? 1 : 0,
+    chunkSize,
+    sensor->status.quality,
+    sensor->status.framesize,
+    sensor->status.brightness,
+    sensor->status.contrast,
+    sensor->status.saturation,
+    sensor->status.awb,
+    sensor->status.awb_gain,
+    sensor->status.wb_mode,
+    sensor->status.lenc,
+    sensor->status.aec,
+    sensor->status.aec_value,
+    sensor->status.agc,
+    sensor->status.gainceiling,
+    sensor->status.agc_gain,
+    sensor->status.hmirror,
+    sensor->status.vflip,
+    sensor->status.special_effect,
+    streamTimer
+  );
+  // mqttClient.publish("fbCam/status", 1, false, payloadOut, strlen(payloadOut));
+  if (Debug) Serial.printf_P(PSTR("Status length: %d\n"), (strlen(payloadOut)));
 }
